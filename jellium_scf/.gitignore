@@ -1,0 +1,15 @@
+.JelliumIntegrals.cc.swp
+CMakeCache.txt
+CMakeFiles/
+ERI.dat
+Kinetic.dat
+Makefile
+NucAttraction.dat
+SelfEnergy.dat
+__init__.pyc
+cmake_install.cmake
+do-configure
+jellium_scf.so
+output.dat
+pymodule.pyc
+timer.dat
