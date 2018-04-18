@@ -35,6 +35,8 @@
 #include "psi4/libpsio/psio.hpp"
 #include "psi4/libpsio/psio.hpp"
 
+#include "JelliumIntegrals.h"
+
 namespace psi{ namespace jellium_scf {
 
 extern "C" PSI_API
@@ -43,6 +45,8 @@ int read_options(std::string name, Options& options)
     if (name == "JELLIUM_SCF"|| options.read_globals()) {
         /*- The amount of information printed to the output file -*/
         options.add_int("PRINT", 1);
+        /*- The number of grid points -*/
+        options.add_int("N_GRID_POINTS", 20);
     }
 
     return true;
@@ -53,7 +57,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 {
     int print = options.get_int("PRINT");
 
-    /* Your code goes here */
+    // evaluate jellium integrals
+    std::shared_ptr<JelliumIntegrals> ints (new JelliumIntegrals(options));
+    ints->compute();
 
     // Typically you would build a new wavefunction and populate it with data
     return ref_wfn;

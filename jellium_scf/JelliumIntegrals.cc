@@ -1,39 +1,69 @@
+/*
+ *@BEGIN LICENSE
+ *
+ * jellium_scf, a plugin to:
+ *
+ * Psi4: an open-source quantum chemistry software package
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Copyright (c) 2014, The Florida State University. All rights reserved.
+ *
+ *@END LICENSE
+ *
+ */
+
 # include <stdlib.h>
 # include <stdio.h>
 # include <math.h>
 # include <time.h>
 # include <string.h>
 
-//int main ( int argc, char *argv[] );
-// Gauss-Legendre quadrature functions
-void legendre_compute_glr ( int n, double x[], double w[] );
-void legendre_compute_glr0 ( int n, double *p, double *pp );
-void legendre_compute_glr1 ( int n, double *roots, double *ders );
-void legendre_compute_glr2 ( double p, int n, double *roots, double *ders );
-void legendre_handle ( int n, double a, double b );
-void r8mat_write ( char *output_filename, int m, int n, double table[] );
-void rescale ( double a, double b, int n, double x[], double w[] );
-double rk2_leg ( double t, double tn, double x, int n );
-void timestamp ( void );
-double ts_mult ( double *u, double h, int n );
-double wtime ( );
-//const double pi=4*atan(1.0);
+#include <psi4/libplugin/plugin.h>
+#include <psi4/psi4-dec.h>
+#include <psi4/liboptions/liboptions.h>
+#include <psi4/libqt/qt.h>
 
-//  Electron integral functions
-double ERI(int dim, double *xa, double *w, double *a, double *b, double *c, double *d);
-double ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d, double * g_tensor, int orbitalMax, double * sqrt_tensor, double ** PQ, int *** PQmap);
-double g_pq(double p, double q, double r);
-double pq_int(int dim, double *x, double *w, double px, double py, double pz, double qx, double qy, double qz);
-double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, double * g_tensor,int orbitalMax, double * sqrt_tensor);
-double E0_Int(int dim, double *xa, double *w);
-double Vab_Int(int dim, double *xa, double *w, double *a, double *b);
+#include <psi4/libpsi4util/process.h>
+#include <psi4/libpsi4util/PsiOutStream.h>
+#include <psi4/libpsio/psio.hpp>
+#include <psi4/libmints/wavefunction.h>
+#include <psi4/psifiles.h>
+#include <psi4/libpsio/psio.hpp>
+#include <psi4/libmints/vector.h>
+#include <psi4/libmints/matrix.h>
 
-void OrderPsis3D(int norbs, int *E, int **MO);
-int **MAT_INT(int dim1, int dim2);
-int *VEC_INT(int dim);
-/******************************************************************************/
+#include "JelliumIntegrals.h"
 
-int main ( int argc, char *argv[] )
+using namespace psi;
+
+namespace psi{ namespace jellium_scf {
+
+JelliumIntegrals::JelliumIntegrals(Options & options):
+        options_(options)
+{
+    //common_init();
+}
+
+
+// free memory here
+JelliumIntegrals::~JelliumIntegrals()
+{
+}
+
+void JelliumIntegrals::compute () {
 
 /******************************************************************************/
 /*
@@ -68,10 +98,11 @@ int main ( int argc, char *argv[] )
  *
  *    John Burkardt
  */  
-{
-  double a;
-  double b;
-  int n;
+
+  // AED: do these values ever need to be anything other than 0 and 1?
+  double a = 0.0;
+  double b = 1.0;
+  int n = options_.get_double("N_GRID_POINTS");
 
   timestamp ( );
 
@@ -96,60 +127,8 @@ int main ( int argc, char *argv[] )
   printf ( "  * leg_oN_r.txt - the region file.\n" );
   
 
-/*
- *   Get N.
- *   */
 
-  if ( 1 < argc )
-  {
-    n = atoi ( argv[1] );
-  }
-  else
-  {
-    printf ( "\n" );
-    printf ( "  Enter N:\n" );
-    scanf ( "%d", &n );
-  }
-  printf ( "\n" );
-  printf ( "  N = %d\n", n );
-
-/*
- *   Get A:
- *   */
-  if ( 2 < argc )
-  {
-    a = atof ( argv[2] );
-  }
-  else
-  {
-    printf ( "\n" );
-    printf ( "  Enter A.\n" );
-    scanf ( "%lf", &a );
-  }
-  printf ( "\n" );
-  printf ( "  A = %g\n", a );
-
-/*
- *   Get B:
- *   */
-  if ( 3 < argc )
-  {
-    b = atof ( argv[3] );
-  }
-  else
-  {
-    printf ( "\n" );
-    printf ( "  Enter B.\n" );
-    scanf ( "%lf", &b );
-  }
-  printf ( "\n" );
-  printf ( "  B = %g\n", b );
-
-
-/*
-
- *   Construct the rule and output it.
- *   */
+ //  Construct the rule and output it.
 
 
  legendre_handle ( n, a, b );
@@ -583,14 +562,12 @@ int main ( int argc, char *argv[] )
   fclose(nucfp);
   fclose(kinfp);
   fclose(selffp);
-  return 0;
-
-
 
 }
+
 /******************************************************************************/
 
-void legendre_compute_glr ( int n, double x[], double w[] )
+void JelliumIntegrals::legendre_compute_glr ( int n, double x[], double w[] )
 
 /******************************************************************************/
 /*
@@ -671,7 +648,7 @@ void legendre_compute_glr ( int n, double x[], double w[] )
 }
 /******************************************************************************/
 
-void legendre_compute_glr0 ( int n, double *p, double *pp )
+void JelliumIntegrals::legendre_compute_glr0 ( int n, double *p, double *pp )
 
 /******************************************************************************/
 /*
@@ -733,7 +710,7 @@ void legendre_compute_glr0 ( int n, double *p, double *pp )
 }
 /******************************************************************************/
 
-void legendre_compute_glr1 ( int n, double *x, double *ders )
+void JelliumIntegrals::legendre_compute_glr1 ( int n, double *x, double *ders )
 
 /******************************************************************************/
 /*
@@ -861,7 +838,7 @@ void legendre_compute_glr1 ( int n, double *x, double *ders )
 }
 /******************************************************************************/
 
-void legendre_compute_glr2 ( double pn0, int n, double *x1,  double *d1 )
+void JelliumIntegrals::legendre_compute_glr2 ( double pn0, int n, double *x1,  double *d1 )
 
 /******************************************************************************/
 /*
@@ -963,7 +940,7 @@ void legendre_compute_glr2 ( double pn0, int n, double *x1,  double *d1 )
 }
 /******************************************************************************/
 
-void legendre_handle ( int n, double a, double b )
+void JelliumIntegrals::legendre_handle ( int n, double a, double b )
 
 /******************************************************************************/
 /*
@@ -1008,12 +985,7 @@ void legendre_handle ( int n, double a, double b )
 /*
  *   Compute the rule.
  *   */
-  t = wtime ( );
   legendre_compute_glr ( n, x, w );
-  t = wtime ( ) - t;
-
-  printf ( "\n" );
-  printf ( "  Elapsed time during computation was %g seconds.\n", t );
 /*
  *   Rescale the rule to [A,B].
  *   */
@@ -1043,7 +1015,7 @@ void legendre_handle ( int n, double a, double b )
 }
 /******************************************************************************/
 
-void r8mat_write ( char *output_filename, int m, int n, double table[] )
+void JelliumIntegrals::r8mat_write ( char *output_filename, int m, int n, double table[] )
 
 /******************************************************************************/
 /*
@@ -1109,7 +1081,7 @@ void r8mat_write ( char *output_filename, int m, int n, double table[] )
 }
 /******************************************************************************/
 
-void rescale ( double a, double b, int n, double x[], double w[] )
+void JelliumIntegrals::rescale ( double a, double b, int n, double x[], double w[] )
 
 /******************************************************************************/
 /*
@@ -1164,7 +1136,7 @@ void rescale ( double a, double b, int n, double x[], double w[] )
 }
 /******************************************************************************/
 
-double rk2_leg ( double t1, double t2, double x, int n )
+double JelliumIntegrals::rk2_leg ( double t1, double t2, double x, int n )
 
 /******************************************************************************/
 /*
@@ -1226,7 +1198,7 @@ double rk2_leg ( double t1, double t2, double x, int n )
 }
 /******************************************************************************/
 
-void timestamp ( void )
+void JelliumIntegrals::timestamp ( void )
 
 /******************************************************************************/
 /*
@@ -1274,7 +1246,7 @@ void timestamp ( void )
 }
 /******************************************************************************/
 
-double ts_mult ( double *u, double h, int n )
+double JelliumIntegrals::ts_mult ( double *u, double h, int n )
 
 /******************************************************************************/
 /*
@@ -1324,41 +1296,9 @@ double ts_mult ( double *u, double h, int n )
   }
   return ts;
 }
-/******************************************************************************/
 
-double wtime ( void )
 
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       WTIME estimates the elapsed wall clock time.
- *
- *         Licensing:
- *
- *             This code is distributed under the GNU LGPL license. 
- *
- *               Modified:
- *
- *                   21 October 2009
- *
- *                     Author:
- *
- *                         John Burkardt
- *
- *                           Parameters:
- *
- *                               Output, double WTIME, the current elapsed wall clock time.
- *                               */
-{
-  double now;
-
-  now = ( double ) clock ( ) / ( double ) CLOCKS_PER_SEC; 
-
-  return now;
-}
-
-double g_pq(double p, double q, double x) {
+double JelliumIntegrals::g_pq(double p, double q, double x) {
   double pi=4*atan(1.0);
   int d;
   d = (int)(fabs(p-q));
@@ -1404,7 +1344,7 @@ double g_pq(double p, double q, double x) {
 // In terms of how the pq_int function is called for the above integral, it should be
 // pq_int(dim, xa, w, px, py, pz, 0, 0, 0)
 
-double Vab_Int(int dim, double *xa, double *w, double *a, double *b){
+double JelliumIntegrals::Vab_Int(int dim, double *xa, double *w, double *a, double *b){
   double px, py, pz, qx, qy, qz;
   double Vab;
   px = a[0] - b[0];
@@ -1440,7 +1380,7 @@ double Vab_Int(int dim, double *xa, double *w, double *a, double *b){
 // which is equivalent to 
 // 1/pi^6 \int cos(0 x1) cos(0 y1) cos(0 z1) cos(0 x2) cos(0 y2) cos(0 z2)/|r1-r2| dr1 dr2
 //
-double E0_Int(int dim, double *xa, double *w) {
+double JelliumIntegrals::E0_Int(int dim, double *xa, double *w) {
   double Eint;
 
   Eint = pq_int(dim, xa, w, 0, 0, 0, 0, 0, 0);
@@ -1462,7 +1402,7 @@ double E0_Int(int dim, double *xa, double *w) {
 //  integrals where p is related to (a-b) or (a+b) and q is related to (c-d) or (c+d)
 //  This function automatically enumerates all the appropriate (p|q), computes them, and
 //  accumulates the total... Hopefully it works!
-double ERI(int dim, double *xa, double *w, double *a, double *b, double *c, double *d) {
+double JelliumIntegrals::ERI(int dim, double *xa, double *w, double *a, double *b, double *c, double *d) {
 
   int i, j, k, l, m, n;
   double *x1, *x2, *y1, *y2, *z1, *z2;
@@ -1550,7 +1490,7 @@ double ERI(int dim, double *xa, double *w, double *a, double *b, double *c, doub
 
 }
 
-double ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d,double * g_tensor, int orbitalMax, double * sqrt_tensor, double ** PQ, int *** PQmap) {
+double JelliumIntegrals::ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d,double * g_tensor, int orbitalMax, double * sqrt_tensor, double ** PQ, int *** PQmap) {
 
   int * x1 = (int *)malloc(3*sizeof(int));
   int * x2 = (int *)malloc(3*sizeof(int));
@@ -1661,7 +1601,7 @@ double ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d,d
 // double *w is a vector containing the weights associated with this grid (analogous to differential length elements
 // in rectangle rule integration).
 // double px, py, pz, qx, qy, qz has the same interpretation as it does in the Gill paper.
-double pq_int(int dim, double *xa, double *w, double px, double py, double pz, double qx, double qy, double qz) {
+double JelliumIntegrals::pq_int(int dim, double *xa, double *w, double px, double py, double pz, double qx, double qy, double qz) {
   double pi=4*atan(1.0);
   double sum = 0.;
   double num, denom;
@@ -1698,7 +1638,7 @@ double pq_int(int dim, double *xa, double *w, double px, double py, double pz, d
   }
 }
 
-double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, double * g_tensor, int orbitalMax, double * sqrt_tensor) {
+double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, double * g_tensor, int orbitalMax, double * sqrt_tensor) {
 
     if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0) {
 
@@ -1735,7 +1675,7 @@ double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, doubl
 / Function to Determine Energy Calculation
 / Take function and loop through n to keep all atomic orbital energy levels.
 */
-void OrderPsis3D(int norbs, int *E, int **MO) {
+void JelliumIntegrals::OrderPsis3D(int norbs, int *E, int **MO) {
 
   int i, j, k, l, c, d, swap, idx, tx, ty, tz, ix, iy, iz;
   int **N, tidx[3];
@@ -1830,7 +1770,7 @@ for (i=0; i<(norbs*norbs*norbs); i++) {
 
 }
 
-int *VEC_INT(int dim){
+int * JelliumIntegrals::VEC_INT(int dim){
   int *v,i;
   v = (int *)malloc(dim*sizeof(int));
   if (v==NULL) {
@@ -1841,7 +1781,7 @@ int *VEC_INT(int dim){
   return v;
 }
 
-int **MAT_INT(int dim1, int dim2){
+int ** JelliumIntegrals::MAT_INT(int dim1, int dim2){
   int i,j,k;
   double sum=0.0;
   int **M;
@@ -1862,3 +1802,5 @@ int **MAT_INT(int dim1, int dim2){
   }
   return M;
 }
+
+}} // end of namespaces

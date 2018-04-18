@@ -34,4 +34,4 @@ project(jellium_scf CXX)
 
 find_package(psi4 1.1 REQUIRED)
 
-add_psi4_plugin(jellium_scf plugin.cc jellium.cc)
+add_psi4_plugin(jellium_scf plugin.cc JelliumIntegrals.cc)
