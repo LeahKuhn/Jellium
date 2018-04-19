@@ -25,8 +25,8 @@
  *
  */
 
-#ifndef V2RDM_SOLVER_H
-#define V2RDM_SOLVER_H
+#ifndef JELLIUM_INTEGRALS_H
+#define JELLIUM_INTEGRALS_H
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -52,6 +52,8 @@ class JelliumIntegrals{
 
     void compute();
 
+    void common_init();
+
   private:
 
     double n_order_;
@@ -70,16 +72,16 @@ class JelliumIntegrals{
     double rk2_leg ( double t, double tn, double x, int n );
     void timestamp ( void );
     double ts_mult ( double *u, double h, int n );
-    double wtime ( );
 
     //  Electron integral functions
     double ERI(int dim, double *xa, double *w, double *a, double *b, double *c, double *d);
-    double ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d, double * g_tensor, int orbitalMax, double * sqrt_tensor, double ** PQ, int *** PQmap);
     double g_pq(double p, double q, double r);
     double pq_int(int dim, double *x, double *w, double px, double py, double pz, double qx, double qy, double qz);
-    double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, double * g_tensor,int orbitalMax, double * sqrt_tensor);
     double E0_Int(int dim, double *xa, double *w);
     double Vab_Int(int dim, double *xa, double *w, double *a, double *b);
+
+    double ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d, double * g_tensor, int orbitalMax, double * sqrt_tensor, double ** PQ, int *** PQmap);
+    double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, double * g_tensor,int orbitalMax, double * sqrt_tensor);
     
     void OrderPsis3D(int norbs, int *E, int **MO);
     int **MAT_INT(int dim1, int dim2);

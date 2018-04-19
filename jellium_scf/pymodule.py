@@ -31,6 +31,7 @@
 import psi4
 import psi4.driver.p4util as p4util
 from psi4.driver.procrouting import proc_util
+from psi4.driver.procrouting import proc
 
 def run_jellium_scf(name, **kwargs):
     r"""Function encoding sequence of PSI module and plugin calls so that
@@ -42,21 +43,12 @@ def run_jellium_scf(name, **kwargs):
     lowername = name.lower()
     kwargs = p4util.kwargs_lower(kwargs)
 
-    # Your plugin's psi4 run sequence goes here
-    psi4.core.set_local_option('MYPLUGIN', 'PRINT', 1)
+    # build empty reference wavefunction to pass into plugin
 
-    # Compute a SCF reference, a wavefunction is return which holds the molecule used, orbitals
-    # Fock matrices, and more
-    print('Attention! This SCF may be density-fitted.')
-    ref_wfn = kwargs.get('ref_wfn', None)
-    if ref_wfn is None:
-        ref_wfn = psi4.driver.scf_helper(name, **kwargs)
+    ref_molecule = kwargs.get('molecule', psi4.core.get_active_molecule())
+    base_wfn = psi4.core.Wavefunction.build(ref_molecule, psi4.core.get_global_option('BASIS'))
+    ref_wfn = proc.scf_wavefunction_factory('HF', base_wfn, psi4.core.get_global_option('REFERENCE'))
 
-    # Ensure IWL files have been written when not using DF/CD
-    proc_util.check_iwl_file_from_scf_type(psi4.core.get_option('SCF', 'SCF_TYPE'), ref_wfn)
-
-    # Call the Psi4 plugin
-    # Please note that setting the reference wavefunction in this way is ONLY for plugins
     jellium_scf_wfn = psi4.core.plugin('jellium_scf.so', ref_wfn)
 
     return jellium_scf_wfn

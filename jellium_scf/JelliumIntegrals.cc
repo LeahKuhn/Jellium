@@ -54,94 +54,68 @@ namespace psi{ namespace jellium_scf {
 JelliumIntegrals::JelliumIntegrals(Options & options):
         options_(options)
 {
-    //common_init();
+    common_init();
 }
-
 
 // free memory here
 JelliumIntegrals::~JelliumIntegrals()
 {
 }
 
-void JelliumIntegrals::compute () {
+void JelliumIntegrals::common_init() {
 
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *   MAIN is the main program for LEGENDRE_RULE_FAST.
- *
- *   Discussion:
- *
- *   This program computes a Gauss-Legendre quadrature rule
- *   and writes it to a file.
- *
- *   Usage:
- *
- *   legendre_rule_fast n a b
- *
- *    where
- *
- *    * n is the number of points in the rule;
- *    * a is the left endpoint;
- *    * b is the right endpoint.
- *
- *    Licensing:
- *
- *    This code is distributed under the GNU LGPL license. 
- *
- *    Modified:
- *
- *    28 September 2013
- *
- *    Author:
- *
- *    John Burkardt
- */  
+    outfile->Printf("\n");
+    outfile->Printf("\n");
+    outfile->Printf( "        ****************************************************\n");
+    outfile->Printf( "        *                                                  *\n");
+    outfile->Printf( "        *    Jellium Hartree-Fock                          *\n");
+    outfile->Printf( "        *                                                  *\n");
+    outfile->Printf( "        ****************************************************\n");
+    outfile->Printf("\n");
+    outfile->Printf("\n");
 
   // AED: do these values ever need to be anything other than 0 and 1?
   double a = 0.0;
   double b = 1.0;
   int n = options_.get_double("N_GRID_POINTS");
 
-  timestamp ( );
+  //  Construct the rule and output it.
+  legendre_handle ( n, a, b );
 
-  printf ( "\n" );
-  printf ( "LEGENDRE_RULE\n" );
-  printf ( "  C version\n" );
-  printf ( "\n" );
-  printf ( "  Compiled on %s at %s.\n", __DATE__, __TIME__ );
-  printf ( "\n" );
-  printf ( "  Compute a Gauss-Legendre rule for approximating\n" );
-  printf ( "\n" );
-  printf ( "    Integral ( a <= x <= b ) f(x) dx\n" );
-  printf ( "\n" );
-  printf ( "  of order N.\n" );
-  printf ( "\n" );
-  printf ( "  The user specifies N, A, and B.\n" );
-  printf ( "\n" );
-  printf ( "  The rule is stored in 3 files:\n" );
-  printf ( "\n" );
-  printf ( "  * leg_oN_w.txt - the weight file\n" );
-  printf ( "  * leg_oN_x.txt - the abscissa file.\n" );
-  printf ( "  * leg_oN_r.txt - the region file.\n" );
-  
-
-
- //  Construct the rule and output it.
+  //outfile->Printf("\n");
+  //outfile->Printf("LEGENDRE_RULE\n");
+  //outfile->Printf("  C version\n");
+  //outfile->Printf("\n");
+  //outfile->Printf("  Compiled on %s at %s.\n", __DATE__, __TIME__);
+  //outfile->Printf("\n" );
+  //outfile->Printf("  Compute a Gauss-Legendre rule for approximating\n");
+  //outfile->Printf("\n" );
+  //outfile->Printf("    Integral ( a <= x <= b ) f(x) dx\n");
+  //outfile->Printf("\n" );
+  //outfile->Printf("  of order N.\n");
+  //outfile->Printf("\n" );
+  //outfile->Printf("  The user specifies N, A, and B.\n");
+  //outfile->Printf("\n" );
+  //outfile->Printf("  The rule is stored in 3 files:\n");
+  //outfile->Printf("\n" );
+  //outfile->Printf("  * leg_oN_w.txt - the weight file\n");
+  //outfile->Printf("  * leg_oN_x.txt - the abscissa file.\n");
+  //outfile->Printf("  * leg_oN_r.txt - the region file.\n");
 
 
- legendre_handle ( n, a, b );
-/*
- *   Terminate.
- *   */
-  printf ( "\n" );
-  printf ( "LEGENDRE_RULE_FAST:\n" );
-  printf ( "  Normal end of execution.\n" );
+}
 
-  printf ( "\n" );
-  timestamp ( );
+void JelliumIntegrals::compute () {
 
+  //printf ( "\n" );
+  //printf ( "LEGENDRE_RULE_FAST:\n" );
+  //printf ( "  Normal end of execution.\n" );
+
+  //printf ( "\n" );
+
+  double a = 0.0;
+  double b = 1.0;
+  int n = options_.get_double("N_GRID_POINTS");
 
   double *x, *w;
   double *mu, *nu, *lam, *sig;
@@ -168,6 +142,7 @@ void JelliumIntegrals::compute () {
   //  Constructe grid and weights, store them to the vectors x and w, respectively.
   //  This is one of John Burkhardt's library functions
   legendre_compute_glr(n, x, w);
+
   // Scale the grid to start at value a and end at value b. 
   // We want our integration range to go from 0 to 1, so a = 0, b = 1
   // This is also one of John Burkhardt's library functions
@@ -181,8 +156,8 @@ void JelliumIntegrals::compute () {
   selffp = fopen("SelfEnergy.dat","w");
 
   // build g tensor g[npq] * w[n]
-  printf("\n");
-  printf("    build g tensor......."); fflush(stdout);
+  outfile->Printf("\n");
+  outfile->Printf("    build g tensor......."); fflush(stdout);
   double * g_tensor = (double*)malloc(n * orbitalMax * orbitalMax * sizeof(double));
   memset((void*)g_tensor,'\0',n * orbitalMax * orbitalMax * sizeof(double));
   for (int pt = 0; pt < n; pt++) {
@@ -193,10 +168,10 @@ void JelliumIntegrals::compute () {
           }
       }
   }
-  printf("done.\n");
+  outfile->Printf("done.\n");
 
   // build sqrt(x*x+y*y+z*z)
-  printf("    build sqrt tensor...."); fflush(stdout);
+  outfile->Printf("    build sqrt tensor...."); fflush(stdout);
   double * sqrt_tensor = (double*)malloc(n*n*n*sizeof(double));
   for (int i = 0; i < n; i++) {
       double xval = x[i];
@@ -209,11 +184,11 @@ void JelliumIntegrals::compute () {
           }
       }
   }
-  printf("done.\n");
+  outfile->Printf("done.\n");
 
 
   // now, compute (P|Q)
-  printf("    build (P|Q).........."); fflush(stdout);
+  outfile->Printf("    build (P|Q).........."); fflush(stdout);
   int ***PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
   for (int i = 0; i < 2*nmax+1; i++) {
       PQmap[i] = (int **)malloc((2*nmax+1)*sizeof(int*));
@@ -479,15 +454,15 @@ void JelliumIntegrals::compute () {
       }
   }
   int end_pq = clock();
-  printf("done.\n");fflush(stdout);
-  printf("\n");
-  printf("    time for (P|Q) construction: %12.6f\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
-  printf("\n");
+  outfile->Printf("done.\n");fflush(stdout);
+  outfile->Printf("\n");
+  outfile->Printf("    time for (P|Q) construction: %12.6f\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
+  outfile->Printf("\n");
   
 
   // Four nested loops to compute lower triange of electron repulsion integrals - roughly have of the non-unique integrals
   // will not be computed, but this is still not exploiting symmetry fully
-  printf("    build ERIs...........");fflush(stdout);
+  outfile->Printf("    build ERIs...........");fflush(stdout);
   int start = clock();
   for (int i=0; i<orbitalMax; i++) {
       mu[0] = MO[i][0];
@@ -529,7 +504,7 @@ void JelliumIntegrals::compute () {
                   erival = ERI_new(n, x, mu, nu, lam, sig, g_tensor, orbitalMax, sqrt_tensor, PQ, PQmap);
                   //double dum = ERI(n, x, w, mu, nu, lam, sig);
                   //if ( fabs(erival - dum) > 1e-14 ) {
-                  //    printf("uh-oh. %20.12lf %20.12lf\n",erival,dum);
+                  //    outfile->Printf("uh-oh. %20.12lf %20.12lf\n",erival,dum);
                   //}else {
                   //    //printf("sweet! %20.12lf %20.12lf\n",erival,dum);
                   //}
@@ -541,10 +516,10 @@ void JelliumIntegrals::compute () {
       }
   }
   int end = clock();
-  printf("done.\n");fflush(stdout);
-  printf("\n");
-  printf("    time for eri construction:   %12.6f\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
-  printf("\n");
+  outfile->Printf("done.\n");fflush(stdout);
+  outfile->Printf("\n");
+  outfile->Printf("    time for eri construction:   %12.6f\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
+  outfile->Printf("\n");
 
   // Compute self energy
   selfval = E0_Int(n, x, w);
@@ -940,7 +915,7 @@ void JelliumIntegrals::legendre_compute_glr2 ( double pn0, int n, double *x1,  d
 }
 /******************************************************************************/
 
-void JelliumIntegrals::legendre_handle ( int n, double a, double b )
+void JelliumIntegrals::legendre_handle ( int n, double a, double b ) {
 
 /******************************************************************************/
 /*
@@ -966,7 +941,6 @@ void JelliumIntegrals::legendre_handle ( int n, double a, double b )
  *
  *                                   Input, double A, B, the left and right endpoints.
  *                                   */ 
-{
   int i;
   char output_r[255];
   char output_w[255];
@@ -998,10 +972,10 @@ void JelliumIntegrals::legendre_handle ( int n, double a, double b )
   sprintf ( output_x, "leg_o%d_x.txt", n );
   sprintf ( output_r, "leg_o%d_r.txt", n );
 
-  printf ( "\n" );
-  printf ( "  Weight file will be   \"%s\".\n", output_w );
-  printf ( "  Abscissa file will be \"%s\".\n", output_x );
-  printf ( "  Region file will be   \"%s\".\n", output_r );
+  outfile->Printf ( "\n" );
+  outfile->Printf ( "  Weight file will be   \"%s\".\n", output_w );
+  outfile->Printf ( "  Abscissa file will be \"%s\".\n", output_x );
+  outfile->Printf ( "  Region file will be   \"%s\".\n", output_r );
             
   r8mat_write ( output_w, 1, n, w );
   r8mat_write ( output_x, 1, n, x );
@@ -1056,9 +1030,9 @@ void JelliumIntegrals::r8mat_write ( char *output_filename, int m, int n, double
 
   if ( !output )
   {
-    printf ( "\n" );
-    printf ( "R8MAT_WRITE - Fatal error!\n" );
-    printf ( "  Could not open the output file.\n" );
+    outfile->Printf ( "\n" );
+    outfile->Printf ( "R8MAT_WRITE - Fatal error!\n" );
+    outfile->Printf ( "  Could not open the output file.\n" );
     return;
   }
 /*
@@ -1198,52 +1172,6 @@ double JelliumIntegrals::rk2_leg ( double t1, double t2, double x, int n )
 }
 /******************************************************************************/
 
-void JelliumIntegrals::timestamp ( void )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       TIMESTAMP prints the current YMDHMS date as a time stamp.
- *
- *         Example:
- *
- *             31 May 2001 09:45:54 AM
- *
- *               Licensing:
- *
- *                   This code is distributed under the GNU LGPL license. 
- *
- *                     Modified:
- *
- *                         24 September 2003
- *
- *                           Author:
- *
- *                               John Burkardt
- *
- *                                 Parameters:
- *
- *                                     None
- *                                     */
-{
-# define TIME_SIZE 40
-
-  static char time_buffer[TIME_SIZE];
-  const struct tm *tm;
-  size_t len;
-  time_t now;
-
-  now = time ( NULL );
-  tm = localtime ( &now );
-
-  len = strftime ( time_buffer, TIME_SIZE, "%d %B %Y %I:%M:%S %p", tm );
-
-  printf ( "%s\n", time_buffer );
-
-  return;
-# undef TIME_SIZE
-}
 /******************************************************************************/
 
 double JelliumIntegrals::ts_mult ( double *u, double h, int n )
@@ -1299,7 +1227,7 @@ double JelliumIntegrals::ts_mult ( double *u, double h, int n )
 
 
 double JelliumIntegrals::g_pq(double p, double q, double x) {
-  double pi=4*atan(1.0);
+  double pi = M_PI;
   int d;
   d = (int)(fabs(p-q));
   double g;
@@ -1561,11 +1489,11 @@ double JelliumIntegrals::ERI_new(int dim, double *xa, double *a, double *b, doub
                           int P = PQmap[ x1[n] ][ y1[l] ][ z1[j] ];
                           int Q = PQmap[ x2[m] ][ y2[k] ][ z2[i] ];
                           if ( P == -999 || Q == -999 ) {
-                              printf("\n");
-                              printf("    well, something is wrong with the indexing.\n");
-                              printf("    %5i %5i\n",P,Q);
-                              printf("    %5i %5i %5i; %5i %5i %5i\n",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
-                              printf("\n");
+                              outfile->Printf("\n");
+                              outfile->Printf("    well, something is wrong with the indexing.\n");
+                              outfile->Printf("    %5i %5i\n",P,Q);
+                              outfile->Printf("    %5i %5i %5i; %5i %5i %5i\n",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
+                              outfile->Printf("\n");
                               exit(1);
                           }
                           double dum = PQ[P][Q];
@@ -1602,7 +1530,7 @@ double JelliumIntegrals::ERI_new(int dim, double *xa, double *a, double *b, doub
 // in rectangle rule integration).
 // double px, py, pz, qx, qy, qz has the same interpretation as it does in the Gill paper.
 double JelliumIntegrals::pq_int(int dim, double *xa, double *w, double px, double py, double pz, double qx, double qy, double qz) {
-  double pi=4*atan(1.0);
+  double pi = M_PI; 
   double sum = 0.;
   double num, denom;
   double x, y, z, dx, dy, dz;
@@ -1694,7 +1622,7 @@ void JelliumIntegrals::OrderPsis3D(int norbs, int *E, int **MO) {
         l = (i+1)*(i+1) + (j+1)*(j+1) + (k+1)*(k+1);
         E[idx] = l;
         // index is and energy is ...
-        printf("  Index is %i and Energy[%i,%i,%i] is %i\n",idx,i+1,j+1,k+1,l);
+        outfile->Printf("  Index is %i and Energy[%i,%i,%i] is %i\n",idx,i+1,j+1,k+1,l);
         // element N[k][0] is nx = i+1
         N[l][0] = i+1;
         // element N[k][1] is ny = j+1
@@ -1721,7 +1649,7 @@ void JelliumIntegrals::OrderPsis3D(int norbs, int *E, int **MO) {
 
 // print all energy values
 for (i=0; i<(norbs*norbs*norbs); i++) {
-  printf(" E[%i] is %i \n",i,E[i]);
+  outfile->Printf(" E[%i] is %i \n",i,E[i]);
 }
 
 
@@ -1762,10 +1690,10 @@ for (i=0; i<(norbs*norbs*norbs); i++) {
 
   }while(c<norbs*norbs*norbs);
 
-  printf(" exit successful \n");
+  outfile->Printf(" exit successful \n");
 
 //  for (i=0; i<(norbs*norbs*norbs); i++) {
-//    printf("  Psi( %i , %i, %i ) %i\n",MO[i][0],MO[i][1],MO[i][2],E[i]);
+//    outfile->Printf("  Psi( %i , %i, %i ) %i\n",MO[i][0],MO[i][1],MO[i][2],E[i]);
 //  }
 
 }
@@ -1774,7 +1702,7 @@ int * JelliumIntegrals::VEC_INT(int dim){
   int *v,i;
   v = (int *)malloc(dim*sizeof(int));
   if (v==NULL) {
-     printf("\n\nVEC_INT: Memory allocation error\n\n");
+     outfile->Printf("\n\nVEC_INT: Memory allocation error\n\n");
      exit(0);
   }
   for (i=0; i<dim; i++) v[i] = 0;
@@ -1787,13 +1715,13 @@ int ** JelliumIntegrals::MAT_INT(int dim1, int dim2){
   int **M;
   M = (int **)malloc(dim1*sizeof(int *));
   if (M==NULL) {
-     printf("\n\nMAT_INT: Memory allocation error\n\n");
+     outfile->Printf("\n\nMAT_INT: Memory allocation error\n\n");
      exit(0);
   }
   for (i=0; i<dim1; i++){
       M[i] = (int *)malloc(dim2*sizeof(int));
       if (M[i]==NULL) {
-         printf("\n\nMAT_INT: Memory allocation error\n\n");
+         outfile->Printf("\n\nMAT_INT: Memory allocation error\n\n");
          exit(0);
       }
       for (j=0; j<dim2; j++){
