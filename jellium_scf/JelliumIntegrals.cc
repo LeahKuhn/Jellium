@@ -74,35 +74,6 @@ void JelliumIntegrals::common_init() {
     outfile->Printf("\n");
     outfile->Printf("\n");
 
-  // AED: do these values ever need to be anything other than 0 and 1?
-  double a = 0.0;
-  double b = 1.0;
-  int n = options_.get_double("N_GRID_POINTS");
-
-  //  Construct the rule and output it.
-  legendre_handle ( n, a, b );
-
-  //outfile->Printf("\n");
-  //outfile->Printf("LEGENDRE_RULE\n");
-  //outfile->Printf("  C version\n");
-  //outfile->Printf("\n");
-  //outfile->Printf("  Compiled on %s at %s.\n", __DATE__, __TIME__);
-  //outfile->Printf("\n" );
-  //outfile->Printf("  Compute a Gauss-Legendre rule for approximating\n");
-  //outfile->Printf("\n" );
-  //outfile->Printf("    Integral ( a <= x <= b ) f(x) dx\n");
-  //outfile->Printf("\n" );
-  //outfile->Printf("  of order N.\n");
-  //outfile->Printf("\n" );
-  //outfile->Printf("  The user specifies N, A, and B.\n");
-  //outfile->Printf("\n" );
-  //outfile->Printf("  The rule is stored in 3 files:\n");
-  //outfile->Printf("\n" );
-  //outfile->Printf("  * leg_oN_w.txt - the weight file\n");
-  //outfile->Printf("  * leg_oN_x.txt - the abscissa file.\n");
-  //outfile->Printf("  * leg_oN_r.txt - the region file.\n");
-
-
 }
 
 void JelliumIntegrals::compute () {
@@ -120,20 +91,18 @@ void JelliumIntegrals::compute () {
   double *x, *w;
   double *mu, *nu, *lam, *sig;
 
-  x = (double *)malloc(n*sizeof(double));
-  w = (double *)malloc(n*sizeof(double));
+  x   = (double *)malloc(n*sizeof(double));
+  w   = (double *)malloc(n*sizeof(double));
   
-  mu = (double *)malloc(3*sizeof(double));
-  nu = (double *)malloc(3*sizeof(double));
+  mu  = (double *)malloc(3*sizeof(double));
+  nu  = (double *)malloc(3*sizeof(double));
   lam = (double *)malloc(3*sizeof(double));
   sig = (double *)malloc(3*sizeof(double));
 
-  
   int nmax=4;
-  int *ORBE, **MO;
 
-  ORBE = VEC_INT(3*nmax*nmax*nmax);
-  MO = MAT_INT(3*nmax*nmax*nmax,3);
+  int * ORBE = VEC_INT(3*nmax*nmax*nmax);
+  int ** MO  = MAT_INT(3*nmax*nmax*nmax,3);
 
   int orbitalMax = 26;
 
@@ -915,78 +884,6 @@ void JelliumIntegrals::legendre_compute_glr2 ( double pn0, int n, double *x1,  d
 }
 /******************************************************************************/
 
-void JelliumIntegrals::legendre_handle ( int n, double a, double b ) {
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       LEGENDRE_HANDLE computes the requested Gauss-Legendre rule and outputs it.
- *
- *         Licensing:
- *
- *             This code is distributed under the GNU LGPL license. 
- *
- *               Modified:
- *
- *                   22 October 2009
- *
- *                     Author:
- *
- *                         John Burkardt
- *
- *                           Parameters:
- *
- *                               Input, int N, the order of the rule.
- *
- *                                   Input, double A, B, the left and right endpoints.
- *                                   */ 
-  int i;
-  char output_r[255];
-  char output_w[255];
-  char output_x[255];
-  double *r;
-  double t;
-  double *w;
-  double *x;
-
-  r = ( double * ) malloc ( 2 * sizeof ( double ) );
-  w = ( double * ) malloc ( n * sizeof ( double ) );
-  x = ( double * ) malloc ( n * sizeof ( double ) );
-
-  r[0] = a;
-  r[1] = b;
-/*
- *   Compute the rule.
- *   */
-  legendre_compute_glr ( n, x, w );
-/*
- *   Rescale the rule to [A,B].
- *   */
-  rescale ( a, b, n, x, w );
-/*
- *   Uncomment to Write the rule to 3 files.
- *   
-
-  sprintf ( output_w, "leg_o%d_w.txt", n );
-  sprintf ( output_x, "leg_o%d_x.txt", n );
-  sprintf ( output_r, "leg_o%d_r.txt", n );
-
-  outfile->Printf ( "\n" );
-  outfile->Printf ( "  Weight file will be   \"%s\".\n", output_w );
-  outfile->Printf ( "  Abscissa file will be \"%s\".\n", output_x );
-  outfile->Printf ( "  Region file will be   \"%s\".\n", output_r );
-            
-  r8mat_write ( output_w, 1, n, w );
-  r8mat_write ( output_x, 1, n, x );
-  r8mat_write ( output_r, 1, 2, r );
-  */
-  free ( r );
-  free ( w );
-  free ( x );
-
-  return;
-}
 /******************************************************************************/
 
 void JelliumIntegrals::r8mat_write ( char *output_filename, int m, int n, double table[] )
