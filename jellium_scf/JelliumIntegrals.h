@@ -50,28 +50,24 @@ class JelliumIntegrals{
     JelliumIntegrals(Options & options);
     ~JelliumIntegrals();
 
-    void compute();
-
     void common_init();
+    //Integral matricies
+    std::shared_ptr<Matrix> NucAttrac;
+    std::shared_ptr<Matrix> Ke;
+    std::shared_ptr<Matrix> PQ;
+    double selfval = 0.0;
+    double ERI_int(int a, int b, int c, int d);
 
   private:
-
+    void compute();
+    std::shared_ptr<Vector> sqrt_tensor;
+    std::shared_ptr<Vector> g_tensor;
     double n_order_;
-
+    int ** MO;
+    int *** PQmap;
+    int orbitalMax = 26;
     /// Options object
     Options & options_;
-
-    // Gauss-Legendre quadrature functions
-    void legendre_compute_glr ( int n, double x[], double w[] );
-    void legendre_compute_glr0 ( int n, double *p, double *pp );
-    void legendre_compute_glr1 ( int n, double *roots, double *ders );
-    void legendre_compute_glr2 ( double p, int n, double *roots, double *ders );
-    void r8mat_write ( char *output_filename, int m, int n, double table[] );
-    void rescale ( double a, double b, int n, double x[], double w[] );
-    double rk2_leg ( double t, double tn, double x, int n );
-    void timestamp ( void );
-    double ts_mult ( double *u, double h, int n );
-
     //  Electron integral functions
     double ERI(int dim, double *xa, double *w, double *a, double *b, double *c, double *d);
     double g_pq(double p, double q, double r);
@@ -79,13 +75,12 @@ class JelliumIntegrals{
     double E0_Int(int dim, double *xa, double *w);
     double Vab_Int(int dim, double *xa, double *w, double *a, double *b);
 
-    double ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d, double * g_tensor, int orbitalMax, double * sqrt_tensor, double ** PQ, int *** PQmap);
-    double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, double * g_tensor,int orbitalMax, double * sqrt_tensor);
+    double ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap);
+    double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, std::shared_ptr<Vector> g_tensor,int orbitalMax, std::shared_ptr<Vector> sqrt_tensor);
     
     void OrderPsis3D(int norbs, int *E, int **MO);
     int **MAT_INT(int dim1, int dim2);
     int *VEC_INT(int dim);
-
 };
 
 }}

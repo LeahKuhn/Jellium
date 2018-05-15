@@ -46,7 +46,7 @@
 #include <psi4/libmints/matrix.h>
 
 #include "JelliumIntegrals.h"
-
+#include "Legendre.h"
 using namespace psi;
 
 namespace psi{ namespace jellium_scf {
@@ -54,7 +54,7 @@ namespace psi{ namespace jellium_scf {
 JelliumIntegrals::JelliumIntegrals(Options & options):
         options_(options)
 {
-    common_init();
+    compute();
 }
 
 // free memory here
@@ -76,9 +76,9 @@ void JelliumIntegrals::common_init() {
 
 }
 
-void JelliumIntegrals::compute () {
+void JelliumIntegrals::compute() {
 
-  //printf ( "\n" );
+ //printf ( "\n" );
   //printf ( "LEGENDRE_RULE_FAST:\n" );
   //printf ( "  Normal end of execution.\n" );
 
@@ -102,46 +102,36 @@ void JelliumIntegrals::compute () {
   int nmax=4;
 
   int * ORBE = VEC_INT(3*nmax*nmax*nmax);
-  int ** MO  = MAT_INT(3*nmax*nmax*nmax,3);
+  MO  = MAT_INT(3*nmax*nmax*nmax,3);
 
-  int orbitalMax = 26;
 
   OrderPsis3D(nmax, ORBE, MO);
-
+  Legendre tmp;
   //  Constructe grid and weights, store them to the vectors x and w, respectively.
   //  This is one of John Burkhardt's library functions
-  legendre_compute_glr(n, x, w);
+  tmp.legendre_compute_glr(n, x, w);
 
   // Scale the grid to start at value a and end at value b. 
   // We want our integration range to go from 0 to 1, so a = 0, b = 1
   // This is also one of John Burkhardt's library functions
-  rescale( a, b, n, x, w);
+  tmp.rescale( a, b, n, x, w);
  
-  FILE *erifp, *nucfp, *kinfp, *selffp;
-  double erival, nucval, kinval, selfval;
-  erifp = fopen("ERI.dat","w");
-  nucfp = fopen("NucAttraction.dat","w");
-  kinfp = fopen("Kinetic.dat","w");
-  selffp = fopen("SelfEnergy.dat","w");
-
   // build g tensor g[npq] * w[n]
   outfile->Printf("\n");
   outfile->Printf("    build g tensor......."); fflush(stdout);
-  double * g_tensor = (double*)malloc(n * orbitalMax * orbitalMax * sizeof(double));
-  memset((void*)g_tensor,'\0',n * orbitalMax * orbitalMax * sizeof(double));
+  g_tensor = std::shared_ptr<Vector>( new Vector(n * orbitalMax * orbitalMax));
   for (int pt = 0; pt < n; pt++) {
       double xval = x[pt];
       for (int p = 0; p < orbitalMax; p++) {
           for (int q = 0; q < orbitalMax; q++) {
-              g_tensor[pt*orbitalMax*orbitalMax+p*orbitalMax+q] = g_pq(p, q, xval) * w[pt];
+              g_tensor->pointer()[pt*orbitalMax*orbitalMax+p*orbitalMax+q] = g_pq(p, q, xval) * w[pt];
           }
       }
   }
   outfile->Printf("done.\n");
-
   // build sqrt(x*x+y*y+z*z)
   outfile->Printf("    build sqrt tensor...."); fflush(stdout);
-  double * sqrt_tensor = (double*)malloc(n*n*n*sizeof(double));
+  sqrt_tensor = std::shared_ptr<Vector>(new Vector(n*n*n));
   for (int i = 0; i < n; i++) {
       double xval = x[i];
       for (int j = 0; j < n; j++) {
@@ -149,45 +139,40 @@ void JelliumIntegrals::compute () {
           for (int k = 0; k < n; k++) {
               double zval = x[k];
               double val = sqrt(xval*xval+yval*yval+zval*zval);
-              sqrt_tensor[i*n*n + j*n + k] = 1.0/val;
+              sqrt_tensor->pointer()[i*n*n + j*n + k] = 1.0/val;
           }
       }
   }
   outfile->Printf("done.\n");
 
 
+  int start_pq = clock();
   // now, compute (P|Q)
+  int Pdim = 0;
   outfile->Printf("    build (P|Q).........."); fflush(stdout);
-  int ***PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
+  PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
   for (int i = 0; i < 2*nmax+1; i++) {
       PQmap[i] = (int **)malloc((2*nmax+1)*sizeof(int*));
       for (int j = 0; j < 2*nmax+1; j++) {
           PQmap[i][j] = (int *)malloc((2*nmax+1)*sizeof(int));
           for (int k = 0; k < 2*nmax+1; k++) {
-              PQmap[i][j][k] = -999;
+              PQmap[i][j][k] = Pdim++;
           }
       }
   }
-  int Pdim = 0;
-  for (int px = 0; px < 2*nmax+1; px++) {
-      for (int py = 0; py < 2*nmax+1; py++) {
-          for (int pz = 0; pz < 2*nmax+1; pz++) {
-              PQmap[px][py][pz] = Pdim;
-              Pdim++;
-          }
-      }
-  }
+ // int Pdim = 0;
+ // for (int px = 0; px < 2*nmax+1; px++) {
+ //     for (int py = 0; py < 2*nmax+1; py++) {
+ //         for (int pz = 0; pz < 2*nmax+1; pz++) {
+ //             PQmap[px][py][pz] = Pdim;
+ //             Pdim++;
+ //         }
+ //     }
+ // }
 
-
-  int start_pq = clock();
-  double ** PQ = (double**)malloc(Pdim * sizeof(double*));
-  for (int p = 0; p < Pdim; p++) {
-      PQ[p] = (double*)malloc(Pdim * sizeof(double));
-      for (int q = 0; q < Pdim; q++) {
-          PQ[p][q] = 0.0;
-      }
-  }
-
+  PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
+  Ke = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
+  NucAttrac = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
   for (int px = 0; px < 2*nmax+1; px++) {
       for (int qx = px; qx < 2*nmax+1; qx++) {
 
@@ -209,212 +194,211 @@ void JelliumIntegrals::compute () {
                           //if ( P > Q ) continue;
 
                           double dum = pq_int_new(n, px, py, pz, qx, qy, qz, g_tensor,orbitalMax,sqrt_tensor);
-                          
+//                         printf("dum %f",dum); 
                           int P,Q;
 
                           // start 
-
                           P = PQmap[px][py][pz];
                           Q = PQmap[qx][qy][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][py][pz];
                           Q = PQmap[px][qy][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[px][qy][pz];
                           Q = PQmap[qx][py][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][qy][pz];
                           Q = PQmap[px][py][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[px][py][qz];
                           Q = PQmap[qx][qy][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][py][qz];
                           Q = PQmap[px][qy][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[px][qy][qz];
                           Q = PQmap[qx][py][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][qy][qz];
                           Q = PQmap[px][py][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           // pxqx - pyqy
 
                           P = PQmap[py][px][pz];
                           Q = PQmap[qy][qx][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[py][qx][pz];
                           Q = PQmap[qy][px][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][px][pz];
                           Q = PQmap[py][qx][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][qx][pz];
                           Q = PQmap[py][px][qz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[py][px][qz];
                           Q = PQmap[qy][qx][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[py][qx][qz];
                           Q = PQmap[qy][px][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][px][qz];
                           Q = PQmap[py][qx][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][qx][qz];
                           Q = PQmap[py][px][pz];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           // now begins pxqx < pyqy < pzqz
 
                           P = PQmap[pz][px][py];
                           Q = PQmap[qz][qx][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[pz][qx][py];
                           Q = PQmap[qz][px][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[pz][px][qy];
                           Q = PQmap[qz][qx][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[pz][qx][qy];
                           Q = PQmap[qz][px][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][px][py];
                           Q = PQmap[pz][qx][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][qx][py];
                           Q = PQmap[pz][px][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][px][qy];
                           Q = PQmap[pz][qx][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][qx][qy];
                           Q = PQmap[pz][px][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           // pxqx - pyqy
 
                           P = PQmap[pz][py][px];
                           Q = PQmap[qz][qy][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[pz][py][qx];
                           Q = PQmap[qz][qy][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[pz][qy][px];
                           Q = PQmap[qz][py][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[pz][qy][qx];
                           Q = PQmap[qz][py][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][py][px];
                           Q = PQmap[pz][qy][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][py][qx];
                           Q = PQmap[pz][qy][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][qy][px];
                           Q = PQmap[pz][py][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qz][qy][qx];
                           Q = PQmap[pz][py][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           // now begins last set of 16
 
                           P = PQmap[px][pz][py];
                           Q = PQmap[qx][qz][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][pz][py];
                           Q = PQmap[px][qz][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[px][pz][qy];
                           Q = PQmap[qx][qz][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][pz][qy];
                           Q = PQmap[px][qz][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[px][qz][py];
                           Q = PQmap[qx][pz][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][qz][py];
                           Q = PQmap[px][pz][qy];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[px][qz][qy];
                           Q = PQmap[qx][pz][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qx][qz][qy];
                           Q = PQmap[px][pz][py];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           // pxqx - pyqy
 
                           P = PQmap[py][pz][px];
                           Q = PQmap[qy][qz][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[py][pz][qx];
                           Q = PQmap[qy][qz][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][pz][px];
                           Q = PQmap[py][qz][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][pz][qx];
                           Q = PQmap[py][qz][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[py][qz][px];
                           Q = PQmap[qy][pz][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[py][qz][qx];
                           Q = PQmap[qy][pz][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][qz][px];
                           Q = PQmap[py][pz][qx];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                           P = PQmap[qy][qz][qx];
                           Q = PQmap[py][pz][px];
-                          PQ[P][Q] = dum;
+                          PQ->pointer()[P][Q] = dum;
 
                       }
                   }
@@ -446,31 +430,29 @@ void JelliumIntegrals::compute () {
           // Lower triangle of 1-electron integrals will be computed, fully exploiting symmetry (I think!)
           // Kinetic Energy Integrals - already computed and stored in ORBE vector    
           if (i==j) { 
-              kinval = 0.5*ORBE[i];
+              Ke->pointer()[i][j] = 0.5*ORBE[i];
           }
           else {
-              kinval = 0.;
+              Ke->pointer()[i][j] = 0.;
           }
+          //printf("%f",kinval);
           // Print Kinetic Energy Integral to file
-          fprintf(kinfp,"  %i  %i  %17.14f\n",i+1,j+1,kinval);
-
           // Nuclear-attraction Integrals
-          nucval = Vab_Int(n, x, w, mu, nu);
+          NucAttrac->pointer()[i][j] = Vab_Int(n, x, w, mu, nu);
           // Print Nuclear-attraction integral to file
-          fprintf(nucfp, "  %i  %i  %17.14f\n",i+1,j+1,nucval);      
 
           // loop over indices for electron 2       
-          for (int k=0; k<orbitalMax; k++) {
-              lam[0] = MO[k][0];
-              lam[1] = MO[k][1];
-              lam[2] = MO[k][2];
-              for (int l=k; l<orbitalMax; l++) {
-                  sig[0] = MO[l][0];
-                  sig[1] = MO[l][1];
-                  sig[2] = MO[l][2];
+          //for (int k=0; k<orbitalMax; k++) {
+              //lam[0] = MO[k][0];
+              //lam[1] = MO[k][1];
+              //lam[2] = MO[k][2];
+              //for (int l=k; l<orbitalMax; l++) {
+                  //sig[0] = MO[l][0];
+                  //sig[1] = MO[l][1];
+                  //sig[2] = MO[l][2];
    
                   // Compute 2-electron integral
-                  erival = ERI_new(n, x, mu, nu, lam, sig, g_tensor, orbitalMax, sqrt_tensor, PQ, PQmap);
+                  //erival = ERI_new(n, x, mu, nu, lam, sig, g_tensor, orbitalMax, sqrt_tensor, PQ->pointer(), PQmap);
                   //double dum = ERI(n, x, w, mu, nu, lam, sig);
                   //if ( fabs(erival - dum) > 1e-14 ) {
                   //    outfile->Printf("uh-oh. %20.12lf %20.12lf\n",erival,dum);
@@ -479,9 +461,9 @@ void JelliumIntegrals::compute () {
                   //}
 
                   // Print ERI to file
-                  fprintf(erifp," %i  %i  %i  %i  %17.14f\n",i+1,j+1,k+1,l+1,erival);
-              }
-          }
+                  //fprintf(erifp," %i  %i  %i  %i  %17.14f\n",i+1,j+1,k+1,l+1,erival);
+             // }
+         // }
       }
   }
   int end = clock();
@@ -492,660 +474,61 @@ void JelliumIntegrals::compute () {
 
   // Compute self energy
   selfval = E0_Int(n, x, w);
+  //outfile->Printf("%f",E0_Int(n, x, w));
   // Print to file
-  fprintf(selffp, "  %17.14f\n",selfval); 
+  //fprintf(selffp, "  %17.14f\n",selfval); 
   
-
   free(x);
   free(w);
   free(mu);
   free(nu);
-  free(lam);
-  free(sig);
-  fclose(erifp);
-  fclose(nucfp);
-  fclose(kinfp);
-  fclose(selffp);
 
 }
 
-/******************************************************************************/
+double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
+   std::shared_ptr<Vector> lam (new Vector(3));
+   std::shared_ptr<Vector> sig (new Vector(3));
+   std::shared_ptr<Vector> nu (new Vector(3));
+   std::shared_ptr<Vector> mu (new Vector(3));
+   for(int i = 0; i < 3; ++i){
+   mu->pointer()[i] = MO[a][i];
+   nu->pointer()[i] = MO[b][i];
+   lam->pointer()[i] = MO[c][i];
+   sig->pointer()[i] = MO[d][i];
+   }
 
-void JelliumIntegrals::legendre_compute_glr ( int n, double x[], double w[] )
 
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       LEGENDRE_COMPUTE_GLR: Legendre quadrature by the Glaser-Liu-Rokhlin method.
- *
- *         Licensing:
- *
- *             This code is distributed under the GNU LGPL license. 
- *
- *               Modified:
- *
- *                   19 October 2009
- *
- *                     Author:
- *
- *                         Original C version by Nick Hale.
- *                             This C version by John Burkardt.
- *
- *                               Reference:
- *
- *                                   Andreas Glaser, Xiangtao Liu, Vladimir Rokhlin, 
- *                                       A fast algorithm for the calculation of the roots of special functions, 
- *                                           SIAM Journal on Scientific Computing,
- *                                               Volume 29, Number 4, pages 1420-1438, 2007.
- *
- *                                                 Parameters:
- *
- *                                                     Input, int N, the order.
- *
- *                                                         Output, double X[N], the abscissas.
- *
- *                                                             Output, double W[N], the weights.
- *                                                             */
-{
-  int i;
-  double p;
-  double pp;
-  double w_sum;
-/*
- *   Get the value and derivative of the N-th Legendre polynomial at 0.
- *   */
-  legendre_compute_glr0 ( n, &p, &pp );
-/*
- *   Either zero is a root, or we have to call a function to find the first root.
- *   */  
-  if ( n % 2 == 1 )
-  {
-    x[(n-1)/2] = p;
-    w[(n-1)/2] = pp;
-  }
-  else
-  {
-    legendre_compute_glr2 ( p, n, &x[n/2], &w[n/2] );
-  }
-/*
- *   Get the complete set of roots and derivatives.
- *   */
-  legendre_compute_glr1 ( n, x, w );
-/*
- *   Compute the weights.
- *   */
-  for ( i = 0; i < n; i++ )
-  {
-    w[i] = 2.0 / ( 1.0 - x[i] ) / ( 1.0 + x[i] ) / w[i] / w[i];
-  }
-  w_sum = 0.0;
-  for ( i = 0; i < n; i++ )
-  {
-    w_sum = w_sum + w[i];
-  }
-  for ( i = 0; i < n; i++ )
-  {
-    w[i] = 2.0 * w[i] / w_sum;
-  }
-  return;
+   //mu->pointer()[0] = MO[a][0];
+   //mu->pointer()[1] = MO[a][1];
+   //mu->pointer()[2] = MO[a][2];
+   //nu->pointer()[0] = MO[b][0];
+   //nu->pointer()[1] = MO[b][1];
+   //nu->pointer()[2] = MO[b][2];
+   //lam->pointer()[0] = MO[c][0];
+   //lam->pointer()[1] = MO[c][1];
+   //lam->pointer()[2] = MO[c][2];
+   //sig->pointer()[0] = MO[d][0];
+   //sig->pointer()[1] = MO[d][1];
+   //sig->pointer()[2] = MO[d][2];
+
+   return ERI_new(mu, nu, lam, sig, PQ->pointer(), PQmap);
 }
-/******************************************************************************/
-
-void JelliumIntegrals::legendre_compute_glr0 ( int n, double *p, double *pp )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       LEGENDRE_COMPUTE_GLR0 gets a starting value for the fast algorithm.
- *
- *         Licensing:
- *
- *             This code is distributed under the GNU LGPL license. 
- *
- *               Modified:
- *
- *                   19 October 2009
- *
- *                     Author:
- *
- *                         Original C version by Nick Hale.
- *                             This C version by John Burkardt.
- *
- *                               Reference:
- *
- *                                   Andreas Glaser, Xiangtao Liu, Vladimir Rokhlin, 
- *                                       A fast algorithm for the calculation of the roots of special functions, 
- *                                           SIAM Journal on Scientific Computing,
- *                                               Volume 29, Number 4, pages 1420-1438, 2007.
- *
- *                                                 Parameters:
- *
- *                                                     Input, int N, the order of the Legendre polynomial.
- *
- *                                                         Output, double *P, *PP, the value of the N-th Legendre polynomial
- *                                                             and its derivative at 0.
- *                                                             */
-{
-  double dk;
-  int k;
-  double pm1;
-  double pm2;
-  double ppm1;
-  double ppm2;
-
-  pm2 = 0.0;
-  pm1 = 1.0;
-  ppm2 = 0.0;
-  ppm1 = 0.0;
-
-  for ( k = 0; k < n; k++ )
-  {
-    dk = ( double ) k;
-    *p = - dk * pm2 / ( dk + 1.0 );
-    *pp = ( ( 2.0 * dk + 1.0 ) * pm1 - dk * ppm2 ) / ( dk + 1.0 );
-    pm2 = pm1;
-    pm1 = *p;
-    ppm2 = ppm1;
-    ppm1 = *pp;
-  }
-  return;
-}
-/******************************************************************************/
-
-void JelliumIntegrals::legendre_compute_glr1 ( int n, double *x, double *ders )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       LEGENDRE_COMPUTE_GLR1 gets the complete set of Legendre points and weights.
- *
- *         Discussion:
- *
- *             This routine requires that a starting estimate be provided for one
- *                 root and its derivative.  This information will be stored in entry
- *                     (N+1)/2 if N is odd, or N/2 if N is even, of ROOTS and DERS.
- *
- *                       Licensing:
- *
- *                           This code is distributed under the GNU LGPL license. 
- *
- *                             Modified:
- *
- *                                 19 October 2009
- *
- *                                   Author:
- *
- *                                       Original C version by Nick Hale.
- *                                           This C version by John Burkardt.
- *
- *                                             Reference:
- *
- *                                                 Andreas Glaser, Xiangtao Liu, Vladimir Rokhlin, 
- *                                                     A fast algorithm for the calculation of the roots of special functions, 
- *                                                         SIAM Journal on Scientific Computing,
- *                                                             Volume 29, Number 4, pages 1420-1438, 2007.
- *
- *                                                               Parameters:
- *
- *                                                                   Input, int N, the order of the Legendre polynomial.
- *
- *                                                                       Input/output, double X[N].  On input, a starting value
- *                                                                           has been set in one entry.  On output, the roots of the Legendre 
- *                                                                               polynomial.
- *
- *                                                                                   Input/output, double DERS[N].  On input, a starting value
- *                                                                                       has been set in one entry.  On output, the derivatives of the Legendre 
- *                                                                                           polynomial at the zeros.
- *
- *                                                                                             Local Parameters:
- *
- *                                                                                                 Local, int M, the number of terms in the Taylor expansion.
- *                                                                                                 */
-{
-  double dk;
-  double dn;
-  double h;
-  int j;
-  int k;
-  int l;
-  int m = 30;
-  int n2;
-  const double pi = 3.141592653589793;
-  int s;
-  double *u;
-  double *up;
-  double xp;
-
-  if ( n % 2 == 1 )
-  {
-    n2 = ( n - 1 ) / 2;
-    s = 1;
-  }
-  else
-  {
-    n2 = n / 2;
-    s = 0;
-  }
-
-  u = ( double * ) malloc ( ( m + 2 ) * sizeof ( double ) );
-  up = ( double * ) malloc ( ( m + 1 ) * sizeof ( double ) );
-
-  dn = ( double ) n;
-
-  for ( j = n2; j < n - 1; j++ )
-  {
-    xp = x[j];
-
-    h = rk2_leg ( pi/2.0, -pi/2.0, xp, n ) - xp;
-
-    u[0] = 0.0;
-    u[1] = 0.0;
-    u[2] = ders[j];
-
-    up[0] = 0.0;
-    up[1] = u[2];
-
-    for ( k = 0; k <= m - 2; k++ )
-    {
-      dk = ( double ) k;
-
-      u[k+3] = 
-      ( 
-        2.0 * xp * ( dk + 1.0 ) * u[k+2]
-        + ( dk * ( dk + 1.0 ) - dn * ( dn + 1.0 ) ) * u[k+1] / ( dk + 1.0 )
-      ) / ( 1.0 - xp ) / ( 1.0 + xp ) / ( dk + 2.0 );
-
-      up[k+2] = ( dk + 2.0 ) * u[k+3];
-    }
-
-    for ( l = 0; l < 5; l++ )
-    { 
-      h = h - ts_mult ( u, h, m ) / ts_mult ( up, h, m-1 );
-    }
-
-    x[j+1] = xp + h;
-    ders[j+1] = ts_mult ( up, h, m-1 );
-  }
-
-  free ( u );
-  free ( up );
-
-  for ( k = 0; k < n2 + s; k++ )
-  {
-    x[k] = - x[n-k-1];
-    ders[k] = ders[n-k-1];
-  }
-  return;
-}
-/******************************************************************************/
-
-void JelliumIntegrals::legendre_compute_glr2 ( double pn0, int n, double *x1,  double *d1 )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       LEGENDRE_COMPUTE_GLR2 finds the first real root.
- *
- *         Discussion:
- *
- *             This routine is only called if N is even.
- *
- *                 Thanks to Morten Welinder, for pointing out a typographical error
- *                     in indexing, 17 May 2013.
- *
- *                       Licensing:
- *
- *                           This code is distributed under the GNU LGPL license. 
- *
- *                             Modified:
- *
- *                                 17 May 2013
- *
- *                                   Author:
- *
- *                                       Original C version by Nick Hale.
- *                                           This C version by John Burkardt.
- *
- *                                             Reference:
- *
- *                                                 Andreas Glaser, Xiangtao Liu, Vladimir Rokhlin, 
- *                                                     A fast algorithm for the calculation of the roots of special functions, 
- *                                                         SIAM Journal on Scientific Computing,
- *                                                             Volume 29, Number 4, pages 1420-1438, 2007.
- *
- *                                                               Parameters:
- *
- *                                                                   Input, double PN0, the value of the N-th Legendre polynomial at 0.
- *
- *                                                                       Input, int N, the order of the Legendre polynomial.
- *
- *                                                                           Output, double *X1, the first real root.
- *
- *                                                                               Output, double *D1, the derivative at X1.
- *
- *                                                                                 Local Parameters:
- *
- *                                                                                     Local, int M, the number of terms in the Taylor expansion.
- *                                                                                     */
-{
-  double dk;
-  double dn;
-  int k;
-  int l;
-  int m = 30;
-  const double pi = 3.141592653589793;
-  double t;
-  double *u;
-  double *up;
-
-  t = 0.0;
-  *x1 = rk2_leg ( t, -pi/2.0, 0.0, n );
-
-  u = ( double * ) malloc ( ( m + 2 ) * sizeof ( double ) );
-  up = ( double * ) malloc ( ( m + 1 ) * sizeof ( double ) );
-
-  dn = ( double ) n;
-/*
- *   U[0] and UP[0] are never used.
- *     U[M+1] is set, but not used, and UP[M] is set and not used.
- *       What gives?
- *       */
-  u[0] = 0.0;
-  u[1] = pn0;
-
-  up[0] = 0.0;
- 
-  for ( k = 0; k <= m - 2; k = k + 2 )
-  {
-    dk = ( double ) k;
-
-    u[k+2] = 0.0;
-    u[k+3] = ( dk * ( dk + 1.0 ) - dn * ( dn + 1.0 ) ) * u[k+1]
-      / ( dk + 1.0 ) / ( dk + 2.0 );
- 
-    up[k+1] = 0.0;
-    up[k+2] = ( dk + 2.0 ) * u[k+3];
-  }
-  
-  for ( l = 0; l < 5; l++ )
-  {
-    *x1 = *x1 - ts_mult ( u, *x1, m ) / ts_mult ( up, *x1, m-1 );
-  }
-  *d1 = ts_mult ( up, *x1, m-1 );
-
-  free ( u );
-  free ( up) ;
-
-  return;
-}
-/******************************************************************************/
-
-/******************************************************************************/
-
-void JelliumIntegrals::r8mat_write ( char *output_filename, int m, int n, double table[] )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       R8MAT_WRITE writes an R8MAT file.
- *
- *         Licensing:
- *
- *             This code is distributed under the GNU LGPL license. 
- *
- *               Modified:
- *
- *                   01 June 2009
- *
- *                     Author:
- *
- *                         John Burkardt
- *
- *                           Parameters:
- *
- *                               Input, char *OUTPUT_FILENAME, the output filename.
- *
- *                                   Input, int M, the spatial dimension.
- *
- *                                       Input, int N, the number of points.
- *
- *                                           Input, double TABLE[M*N], the table data.
- *                                           */
-{
-  int i;
-  int j;
-  FILE *output;
-/*
- *   Open the file.
- *   */
-  output = fopen ( output_filename, "wt" );
-
-  if ( !output )
-  {
-    outfile->Printf ( "\n" );
-    outfile->Printf ( "R8MAT_WRITE - Fatal error!\n" );
-    outfile->Printf ( "  Could not open the output file.\n" );
-    return;
-  }
-/*
- *   Write the data.
- *   */
-  for ( j = 0; j < n; j++ )
-  {
-    for ( i = 0; i < m; i++ )
-    {
-      fprintf ( output, "  %24.16g", table[i+j*m] );
-    }
-    fprintf ( output, "\n" );
-  }
-/*
- *   Close the file.
- *   */
-  fclose ( output );
-
-  return;
-}
-/******************************************************************************/
-
-void JelliumIntegrals::rescale ( double a, double b, int n, double x[], double w[] )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       RESCALE rescales a Legendre quadrature rule from [-1,+1] to [A,B].
- *
- *         Licensing:
- *
- *             This code is distributed under the GNU LGPL license. 
- *
- *               Modified:
- *
- *                   22 October 2009
- *
- *                     Author:
- *
- *                         Original MATLAB version by Nick Hale.
- *                             C version by John Burkardt.
- *
- *                               Reference:
- *
- *                                   Andreas Glaser, Xiangtao Liu, Vladimir Rokhlin, 
- *                                       A fast algorithm for the calculation of the roots of special functions, 
- *                                           SIAM Journal on Scientific Computing,
- *                                               Volume 29, Number 4, pages 1420-1438, 2007.
- *
- *                                                 Parameters:
- *
- *                                                     Input, double A, B, the endpoints of the new interval.
- *
- *                                                         Input, int N, the order.
- *
- *                                                             Input/output, double X[N], on input, the abscissas for [-1,+1].
- *                                                                 On output, the abscissas for [A,B].
- *
- *                                                                     Input/output, double W[N], on input, the weights for [-1,+1].
- *                                                                         On output, the weights for [A,B].
- *                                                                         */
-{
-  int i;
-
-  for ( i = 0; i < n; i++ )
-  {
-    x[i] = ( ( a + b ) + ( b - a ) * x[i] ) / 2.0;
-  }
-  for ( i = 0; i < n; i++ )
-  {
-    w[i] = ( b - a ) * w[i] / 2.0;
-  }
-  return;
-}
-/******************************************************************************/
-
-double JelliumIntegrals::rk2_leg ( double t1, double t2, double x, int n )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       RK2_LEG advances the value of X(T) using a Runge-Kutta method.
- *
- *         Licensing:
- *
- *             This code is distributed under the GNU LGPL license. 
- *
- *               Modified:
- *
- *                   22 October 2009
- *
- *                     Author:
- *
- *                         Original C version by Nick Hale.
- *                             This C version by John Burkardt.
- *
- *                               Parameters:
- *
- *                                   Input, double T1, T2, the range of the integration interval.
- *
- *                                       Input, double X, the value of X at T1.
- *
- *                                           Input, int N, the number of steps to take.
- *
- *                                               Output, double RK2_LEG, the value of X at T2.
- *                                               */
-{
-  double f;
-  double h;
-  int j;
-  double k1;
-  double k2;
-  int m = 10;
-  double snn1;
-  double t;
-
-  h = ( t2 - t1 ) / ( double ) m;
-  snn1 = sqrt ( ( double ) ( n * ( n + 1 ) ) );
-
-  t = t1;
-
-  for ( j = 0; j < m; j++ )
-  {
-    f = ( 1.0 - x ) * ( 1.0 + x );
-    k1 = - h * f / ( snn1 * sqrt ( f ) - 0.5 * x * sin ( 2.0 * t ) );
-    x = x + k1;
-
-    t = t + h;
-
-    f = ( 1.0 - x ) * ( 1.0 + x );
-    k2 = - h * f / ( snn1 * sqrt ( f ) - 0.5 * x * sin ( 2.0 * t ) );   
-    x = x + 0.5 * ( k2 - k1 );
-  }
-  return x;
-}
-/******************************************************************************/
-
-/******************************************************************************/
-
-double JelliumIntegrals::ts_mult ( double *u, double h, int n )
-
-/******************************************************************************/
-/*
- *   Purpose:
- *
- *       TS_MULT evaluates a polynomial.
- *
- *         Discussion:
- *
- *             TS_MULT = U[1] + U[2] * H + ... + U[N] * H^(N-1).
- *
- *               Licensing:
- *
- *                   This code is distributed under the GNU LGPL license. 
- *
- *                     Modified:
- *
- *                         17 May 2013
- *
- *                           Author:
- *
- *                               Original C version by Nick Hale.
- *                                   This C version by John Burkardt.
- *
- *                                     Parameters:
- *
- *                                         Input, double U[N+1], the polynomial coefficients.
- *                                             U[0] is ignored.
- *
- *                                                 Input, double H, the polynomial argument.
- *
- *                                                     Input, int N, the number of terms to compute.
- *
- *                                                         Output, double TS_MULT, the value of the polynomial.
- *                                                         */
-{
-  double hk;
-  int k;
-  double ts;
-  
-  ts = 0.0;
-  hk = 1.0;
-  for ( k = 1; k<= n; k++ )
-  {
-    ts = ts + u[k] * hk;
-    hk = hk * h;
-  }
-  return ts;
-}
-
 
 double JelliumIntegrals::g_pq(double p, double q, double x) {
+  int d = (int)(fabs(p-q));
   double pi = M_PI;
-  int d;
-  d = (int)(fabs(p-q));
-  double g;
-  g = 0.;
+  double g = 0.0;
   if (p == q && p == 0) {
-
-    g = 1 - x;
-
+    return 1 - x;
   }
   else if ( p == q && p > 0 ) {
-
-    g = (1 - x)*cos(p*pi*x)/2. - sin(p*pi*x)/(2*p*pi);
-
+    return (1 - x)*cos(p*pi*x)/2.0 - sin(p*pi*x)/(2*p*pi);
   }
   else if ( (d % 2)==0) {
-
-    g = (q*sin(q*pi*x) - p*sin(p*pi*x))/((p*p-q*q)*pi);
+    return (q*sin(q*pi*x) - p*sin(p*pi*x))/((p*p-q*q)*pi);
   }
-  else g = 0.;
-
-  return g;
+  else 
+    return 0.0;
 }
 
 
@@ -1206,11 +589,7 @@ double JelliumIntegrals::Vab_Int(int dim, double *xa, double *w, double *a, doub
 // 1/pi^6 \int cos(0 x1) cos(0 y1) cos(0 z1) cos(0 x2) cos(0 y2) cos(0 z2)/|r1-r2| dr1 dr2
 //
 double JelliumIntegrals::E0_Int(int dim, double *xa, double *w) {
-  double Eint;
-
-  Eint = pq_int(dim, xa, w, 0, 0, 0, 0, 0, 0);
-  return Eint;
-
+  return  pq_int(dim, xa, w, 0, 0, 0, 0, 0, 0);
 }
 
 
@@ -1315,7 +694,7 @@ double JelliumIntegrals::ERI(int dim, double *xa, double *w, double *a, double *
 
 }
 
-double JelliumIntegrals::ERI_new(int dim, double *xa, double *a, double *b, double *c, double *d,double * g_tensor, int orbitalMax, double * sqrt_tensor, double ** PQ, int *** PQmap) {
+double JelliumIntegrals::ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap) {
 
   int * x1 = (int *)malloc(3*sizeof(int));
   int * x2 = (int *)malloc(3*sizeof(int));
@@ -1325,50 +704,40 @@ double JelliumIntegrals::ERI_new(int dim, double *xa, double *a, double *b, doub
   int * z2 = (int *)malloc(3*sizeof(int));
 
   //x1[0] = ax-bx, x1[1] = ax+bx
-  x1[0] = (int)(a[0] - b[0]);
-  x1[1] = (int)(a[0] + b[0]);
-  y1[0] = (int)(a[1] - b[1]);
-  y1[1] = (int)(a[1] + b[1]);
-  z1[0] = (int)(a[2] - b[2]);
-  z1[1] = (int)(a[2] + b[2]);
+  x1[0] = (int)(a->pointer()[0] - b->pointer()[0]);
+  x1[1] = (int)(a->pointer()[0] + b->pointer()[0]);
+  y1[0] = (int)(a->pointer()[1] - b->pointer()[1]);
+  y1[1] = (int)(a->pointer()[1] + b->pointer()[1]);
+  z1[0] = (int)(a->pointer()[2] - b->pointer()[2]);
+  z1[1] = (int)(a->pointer()[2] + b->pointer()[2]);
 
   //x1[0] = cx-dx, x1[1] = cx+dx
-  x2[0] = (int)(c[0] - d[0]);
-  x2[1] = (int)(c[0] + d[0]);
-  y2[0] = (int)(c[1] - d[1]);
-  y2[1] = (int)(c[1] + d[1]);
-  z2[0] = (int)(c[2] - d[2]);
-  z2[1] = (int)(c[2] + d[2]);
+  x2[0] = (int)(c->pointer()[0] - d->pointer()[0]);
+  x2[1] = (int)(c->pointer()[0] + d->pointer()[0]);
+  y2[0] = (int)(c->pointer()[1] - d->pointer()[1]);
+  y2[1] = (int)(c->pointer()[1] + d->pointer()[1]);
+  z2[0] = (int)(c->pointer()[2] - d->pointer()[2]);
+  z2[1] = (int)(c->pointer()[2] + d->pointer()[2]);
 
   // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
 
   double eri_val = 0.0;
 
   for (int i = 0; i < 2; i++) {
-
       if ( z2[i] < 0 ) continue;
       int faci = (int)pow(-1,i);
-
       for (int j = 0; j < 2; j++) {
-
           if ( z1[j] < 0 ) continue;
           int facij = faci * (int)pow(-1,j);
-
           for (int k = 0; k < 2; k++) {
-
               if ( y2[k] < 0 ) continue;
               int facijk = facij * (int)pow(-1,k);
-
               for (int l = 0; l < 2; l++) { 
-
                   if ( y1[l] < 0 ) continue;
                   int facijkl = facijk * (int)pow(-1,l);
-
                   for (int m = 0; m < 2; m++) {
-
                       if ( x2[m] < 0 ) continue;
                       int facijklm = facijkl * (int)pow(-1,m);
-
                       for (int n = 0; n < 2; n++) {
 
                           if ( x1[n] < 0 ) continue;
@@ -1427,73 +796,53 @@ double JelliumIntegrals::ERI_new(int dim, double *xa, double *a, double *b, doub
 // in rectangle rule integration).
 // double px, py, pz, qx, qy, qz has the same interpretation as it does in the Gill paper.
 double JelliumIntegrals::pq_int(int dim, double *xa, double *w, double px, double py, double pz, double qx, double qy, double qz) {
-  double pi = M_PI; 
   double sum = 0.;
-  double num, denom;
-  double x, y, z, dx, dy, dz;
-  double gx, gy, gz;
-
+  double num, denom, x, y, z, dx, dy, dz, gx, gy, gz;
+  double pi = M_PI;
   if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0) {
-  return 0.;
-  } 
-
-  else {
-
-  for (int i=0; i<dim; i++) {
-    x = xa[i];
-    dx = w[i];
-    gx = g_pq(px, qx, x);
-    for (int j=0; j<dim; j++) {
-      y = xa[j];
-      dy = w[j];
-      gy = g_pq(py, qy, y);
-      for (int k=0; k<dim; k++) {
-        z = xa[k];
-        dz = w[k];
-        gz = g_pq(pz, qz, z);
-        num = gx*gy*gz;
-        denom = sqrt(x*x+y*y+z*z);
-        sum += (num/denom)*dx*dy*dz;
+        return 0.;
+  } else {
+    for (int i=0; i<dim; i++) {
+        x = xa[i];
+        dx = w[i];
+        gx = g_pq(px, qx, x);
+        for (int j=0; j<dim; j++) {
+            y = xa[j];
+            dy = w[j];
+            gy = g_pq(py, qy, y);
+            for (int k=0; k<dim; k++) {
+                z = xa[k];
+                dz = w[k];
+                gz = g_pq(pz, qz, z);
+                num = gx*gy*gz;
+                denom = sqrt(x*x+y*y+z*z);
+                sum += (num/denom)*dx*dy*dz;
         //printf("  sum %f  x %f  y %f  z %f\n",sum, x, y, z);
-      }
+            }
+        }
     }
-  }
-
-  return (8./pi)*sum;
+    return (8./pi)*sum;
   }
 }
 
-double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, double * g_tensor, int orbitalMax, double * sqrt_tensor) {
-
-    if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0) {
-
+double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, std::shared_ptr<Vector> g_tensor, int orbitalMax, std::shared_ptr<Vector> sqrt_tensor) {
+    double pi = M_PI;
+    if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0){
         return 0.;
-
     }
-
-    double sum = 0.0;
-
-    for (int i = 0; i < dim; i++) {
-
-        double gx = g_tensor[i * orbitalMax * orbitalMax + px * orbitalMax + qx];
-
-        for (int j = 0; j < dim; j++) {
-
-            double gxgy = gx * g_tensor[j * orbitalMax * orbitalMax + py * orbitalMax + qy];
-
-            for (int k = 0; k < dim; k++) {
-
-                double gxgygz = gxgy * g_tensor[k * orbitalMax * orbitalMax + pz * orbitalMax + qz];
-
-                sum += gxgygz * sqrt_tensor[i*dim*dim + j*dim + k];
-
+    double sum = 0.;
+    for (int i = 0; i < dim; i++){
+        double gx = g_tensor->pointer()[i * orbitalMax * orbitalMax + px * orbitalMax + qx];
+        for (int j = 0; j < dim; j++){
+            double gxgy = gx * g_tensor->pointer()[j * orbitalMax * orbitalMax + py * orbitalMax + qy];
+            for (int k = 0; k < dim; k++){
+                double gxgygz = gxgy * g_tensor->pointer()[k * orbitalMax * orbitalMax + pz * orbitalMax + qz];
+                sum += gxgygz * sqrt_tensor->pointer()[i*dim*dim + j*dim + k];
                 //printf("  sum %f  x %f  y %f  z %f\n",sum, x, y, z);
             }
         }
     }
-
-    return 8.0 * sum / M_PI;
-
+    return 8. * sum / pi;
 }
 
 /* 
@@ -1502,7 +851,7 @@ double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int
 */
 void JelliumIntegrals::OrderPsis3D(int norbs, int *E, int **MO) {
 
-  int i, j, k, l, c, d, swap, idx, tx, ty, tz, ix, iy, iz;
+  int c, d, i, j, k, l, swap, idx, tx, ty, tz, ix, iy, iz;
   int **N, tidx[3];
   int cond, Ecur;
   N = MAT_INT(2*(norbs+1)*(norbs+1)*(norbs+1),3);
@@ -1510,9 +859,9 @@ void JelliumIntegrals::OrderPsis3D(int norbs, int *E, int **MO) {
   // Going to start with i and j=0 because that's the beginning
   // of the array... nx=i+1, ny=j+1
 
-  for (i=0; i<norbs; i++) {
-    for (j=0; j<norbs; j++) {
-      for (k=0; k<norbs; k++) {
+  for ( i=0; i<norbs; i++) {
+    for ( j=0; j<norbs; j++) {
+      for ( k=0; k<norbs; k++) {
 
         idx = i*norbs*norbs+j*norbs+k;
         // l is related to nx^2 + ny^2 + nz^2, aka, (i+1)^2 + (j+1)^2 (k+1)^2
@@ -1531,10 +880,8 @@ void JelliumIntegrals::OrderPsis3D(int norbs, int *E, int **MO) {
     }
   }
 
-  for (c = 0 ; c < ( norbs*norbs*norbs-1 ); c++)
-  {
-    for (d = 0 ; d < norbs*norbs*norbs - c - 1; d++)
-    {
+  for ( c = 0 ; c < ( norbs*norbs*norbs-1 ); c++){
+    for (d = 0 ; d < norbs*norbs*norbs - c - 1; d++){
       if (E[d] > E[d+1]) /* For decreasing order use < */
       {
         swap       = E[d];
@@ -1545,48 +892,32 @@ void JelliumIntegrals::OrderPsis3D(int norbs, int *E, int **MO) {
   }
 
 // print all energy values
-for (i=0; i<(norbs*norbs*norbs); i++) {
+for (int i=0; i<(norbs*norbs*norbs); i++) {
   outfile->Printf(" E[%i] is %i \n",i,E[i]);
 }
-
-
   c=0;
   do {
-
     Ecur = E[c];
-
     i=0;
     do {
       i++;
       j=0;
-
       do {
         j++;
         k=0;
-
         do {
-
           k++;
-
           cond=Ecur-(i*i+j*j+k*k);
-
           if (cond==0) {
-
             MO[c][0] = i;
             MO[c][1] = j;
             MO[c][2] = k;
             c++;
-
           }
-
         }while( Ecur==E[c] && k<norbs);
-
       }while( Ecur==E[c] && j<norbs);
-
     }while (Ecur==E[c] && i<norbs);
-
   }while(c<norbs*norbs*norbs);
-
   outfile->Printf(" exit successful \n");
 
 //  for (i=0; i<(norbs*norbs*norbs); i++) {

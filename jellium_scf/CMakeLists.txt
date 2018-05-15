@@ -31,7 +31,13 @@
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
 project(jellium_scf CXX)
-
 find_package(psi4 1.1 REQUIRED)
 
-add_psi4_plugin(jellium_scf plugin.cc JelliumIntegrals.cc)
+if(testing)
+  message("**********************")
+  message("Building integral test")
+  message("**********************")
+  add_psi4_plugin(jellium_scf test_plugin.cc JelliumIntegrals.cc Legendre.cc)
+else()
+  add_psi4_plugin(jellium_scf plugin.cc JelliumIntegrals.cc Legendre.cc)
+endif()
