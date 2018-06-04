@@ -87,7 +87,7 @@ void JelliumIntegrals::compute() {
   double a = 0.0;
   double b = 1.0;
   int n = options_.get_double("N_GRID_POINTS");
-
+  printf("grid points %d",n);
   double *x, *w;
   double *mu, *nu, *lam, *sig;
 
@@ -148,7 +148,6 @@ void JelliumIntegrals::compute() {
 
   int start_pq = clock();
   // now, compute (P|Q)
-  int Pdim = 0;
   outfile->Printf("    build (P|Q).........."); fflush(stdout);
   PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
   for (int i = 0; i < 2*nmax+1; i++) {
@@ -156,23 +155,23 @@ void JelliumIntegrals::compute() {
       for (int j = 0; j < 2*nmax+1; j++) {
           PQmap[i][j] = (int *)malloc((2*nmax+1)*sizeof(int));
           for (int k = 0; k < 2*nmax+1; k++) {
-              PQmap[i][j][k] = Pdim++;
+              PQmap[i][j][k] = 999;
           }
       }
   }
- // int Pdim = 0;
- // for (int px = 0; px < 2*nmax+1; px++) {
- //     for (int py = 0; py < 2*nmax+1; py++) {
- //         for (int pz = 0; pz < 2*nmax+1; pz++) {
- //             PQmap[px][py][pz] = Pdim;
- //             Pdim++;
- //         }
- //     }
- // }
+  int Pdim = 0;
+  for (int px = 0; px < 2*nmax+1; px++) {
+      for (int py = 0; py < 2*nmax+1; py++) {
+          for (int pz = 0; pz < 2*nmax+1; pz++) {
+              PQmap[px][py][pz] = Pdim;
+              Pdim++;
+          }
+      }
+  }
 
   PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
-  Ke = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
-  NucAttrac = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
+  Ke = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
+  NucAttrac = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
   for (int px = 0; px < 2*nmax+1; px++) {
       for (int qx = px; qx < 2*nmax+1; qx++) {
 
@@ -411,7 +410,7 @@ void JelliumIntegrals::compute() {
   outfile->Printf("\n");
   outfile->Printf("    time for (P|Q) construction: %12.6f\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
   outfile->Printf("\n");
-  
+  outfile->Printf("canonical integrals");
 
   // Four nested loops to compute lower triange of electron repulsion integrals - roughly have of the non-unique integrals
   // will not be computed, but this is still not exploiting symmetry fully
@@ -439,6 +438,7 @@ void JelliumIntegrals::compute() {
           // Print Kinetic Energy Integral to file
           // Nuclear-attraction Integrals
           NucAttrac->pointer()[i][j] = Vab_Int(n, x, w, mu, nu);
+          NucAttrac->pointer()[j][i] = NucAttrac->pointer()[i][j];
           // Print Nuclear-attraction integral to file
 
           // loop over indices for electron 2       
@@ -580,7 +580,7 @@ double JelliumIntegrals::Vab_Int(int dim, double *xa, double *w, double *a, doub
   // -Cos[qx x1] Cos[qy y1] Cos[qz z1]
   Vab -= pq_int(dim, xa, w, 0, 0, 0, qx, qy, qz);
 
-  return -Vab;
+  return -Vab/pow(3.14159,3);
 
 }
 
