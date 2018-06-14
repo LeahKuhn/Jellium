@@ -124,7 +124,7 @@ void JelliumIntegrals::compute() {
   tmp.rescale( a, b, n, x, w);
   // build g tensor g[npq] * w[n]
   outfile->Printf("\n");
-  outfile->Printf("    build g tensor......."); fflush(stdout);
+  outfile->Printf("    build g tensor................"); fflush(stdout);
   g_tensor = std::shared_ptr<Vector>( new Vector(n * orbitalMax * orbitalMax));
   for (int pt = 0; pt < n; pt++) {
       double xval = x[pt];
@@ -136,7 +136,7 @@ void JelliumIntegrals::compute() {
   }
   outfile->Printf("done.\n");
   // build sqrt(x*x+y*y+z*z)
-  outfile->Printf("    build sqrt tensor...."); fflush(stdout);
+  outfile->Printf("    build sqrt tensor............."); fflush(stdout);
   sqrt_tensor = std::shared_ptr<Vector>(new Vector(n*n*n));
   double * s_p = sqrt_tensor->pointer();
   for (int i = 0; i < n; i++) {
@@ -155,7 +155,7 @@ void JelliumIntegrals::compute() {
 
   int start_pq = clock();
   // now, compute (P|Q)
-  outfile->Printf("    build (P|Q).........."); fflush(stdout);
+  outfile->Printf("    build (P|Q)..................."); fflush(stdout);
   PQmap = (int ***)malloc((2*nmax+2)*sizeof(int**));
   for (int i = 0; i < 2*nmax+2; i++) {
       PQmap[i] = (int **)malloc((2*nmax+2)*sizeof(int*));
@@ -424,7 +424,7 @@ void JelliumIntegrals::compute() {
   outfile->Printf("done.\n");fflush(stdout);
 
   outfile->Printf("\n");
-  outfile->Printf("    time for (P|Q) construction: %12.6f\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
+  outfile->Printf("    time for (P|Q) construction:                %6.1f s\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
   outfile->Printf("\n");
   //outfile->Printf("canonical integrals");
 
@@ -496,7 +496,7 @@ void JelliumIntegrals::compute() {
   int end = clock();
   outfile->Printf("done.\n");fflush(stdout);
   outfile->Printf("\n");
-  outfile->Printf("    time for potential integral construction:   %12.6f\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
+  outfile->Printf("    time for potential integral construction:   %6.1f s\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
   outfile->Printf("\n");
 
   // Compute self energy

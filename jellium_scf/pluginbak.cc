@@ -170,11 +170,20 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     first_energy -=       Dfirst->vector_dot(K);
     
     F->copy(h);
-    outfile->Printf("guess energy %f \n", first_energy);
+    outfile->Printf("\n");
+    outfile->Printf("    guess energy %f \n", first_energy);
+    outfile->Printf("\n");
+
     double e_convergence = options.get_double("E_CONVERGENCE");
     double d_convergence = options.get_double("D_CONVERGENCE");
-    int Iter = 0;
-    outfile->Printf("Iter \t energy \t energy difference \t density difference \n");
+    int    maxiter       = options.get_int("MAXITER");
+
+    int iter = 0;
+    outfile->Printf("    ");
+    outfile->Printf("  iter");
+    outfile->Printf("              energy");
+    outfile->Printf("                |dE|");
+    outfile->Printf("                |dD|\n");
 
     do {
     
@@ -227,18 +236,29 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                 density_diff += (D->pointer()[mu][nu] - Dfirst->pointer()[mu][nu])*(D->pointer()[mu][nu] - Dfirst->pointer()[mu][nu]);
             }
         }
-        outfile->Printf("%i \t %10.10f \t %10.10f \t  %10.10f \n", Iter, energy, fabs(energy-first_energy), fabs(sqrt(density_diff)) );
+        outfile->Printf("    %6i%20.12lf%20.12lf%20.12lf\n", iter, energy, fabs(energy-first_energy), fabs(sqrt(density_diff)) );
         double check = fabs(energy-first_energy);
         first_energy = energy;
-        ++Iter;
+        ++iter;
         Dfirst->copy(D);
-        if(check < e_convergence && sqrt(density_diff) < d_convergence){
-           double fock_energy = Dfirst->vector_dot(K);
-           V->print();
-           printf("fock energy: %f",fock_energy);
-           return ref_wfn;
+        if(check < e_convergence && sqrt(density_diff) < d_convergence) {
+            break;
         }
-    }while(1);
+    }while(iter < maxiter);
+
+    if ( iter == maxiter ) {
+        throw PsiException("jellium scf did not converge.",__FILE__,__LINE__);
+    }
+
+    outfile->Printf("\n");
+    outfile->Printf("      SCF iterations converged!\n");
+    outfile->Printf("\n");
+
+    double fock_energy = Dfirst->vector_dot(K);
+    //V->print();
+    outfile->Printf("    * Jellium HF total energy: %20.12lf\n",first_energy);
+    outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
+    return ref_wfn;
 
     // Typically you would build a new wavefunction and populate it with data
     return ref_wfn;

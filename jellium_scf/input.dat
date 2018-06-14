@@ -15,12 +15,9 @@ A = 104.5
 
 set {
   basis sto-3g
-}
-
-set jellium_scf {
-  print 1
+  n_grid_points       30
+  n_electrons          2
+  n_basis_functions   26
 }
 
 energy('jellium_scf')
-
-jellium_scf.exampleFN()
