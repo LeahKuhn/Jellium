@@ -55,7 +55,7 @@ JelliumIntegrals::JelliumIntegrals(Options & options):
         options_(options)
 {
     orbitalMax = options.get_int("N_BASIS_FUNCTIONS");
-    length = options.get_int("LENGTH");
+    length = options.get_double("LENGTH");
     common_init();
     compute();
 }

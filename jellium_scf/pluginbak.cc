@@ -42,9 +42,16 @@
 #include "psi4/lib3index/dftensor.h"
 #include "psi4/libqt/qt.h"
 #include <math.h>
-#include <omp.h>
 #include "psi4/pragma.h"
 #include"JelliumIntegrals.h"
+
+#ifdef _OPENMP
+    #include<omp.h>
+#else
+    #define omp_get_wtime() ( (double)clock() / CLOCKS_PER_SEC )
+    #define omp_get_max_threads() 1
+#endif
+
 namespace psi{ namespace jellium_scf {
 
 extern "C" PSI_API
@@ -60,7 +67,7 @@ int read_options(std::string name, Options& options)
         /*- The number of basis functions -*/
         options.add_int("N_BASIS_FUNCTIONS", 26);
         /*- The length of the box -*/
-        options.add_int("LENGTH", M_PI);
+        options.add_double("LENGTH", M_PI);
     }
 
     return true;
