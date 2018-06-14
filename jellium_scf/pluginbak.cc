@@ -134,46 +134,16 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         }
     }
 
-    // evaluate initial energy
     double first_energy = 0.0;
 
-    //first_energy += Dfirst->vector_dot(h);
-    first_energy += (nelectron*nelectron)/2.0*Jell->selfval/ Lfac;
-
-    // core hamiltonian contribution
-    first_energy += 2.0 * Dfirst->vector_dot(h);
-
-    // build J(mu,nu) = D(lambda,sigma) (mu nu | lambda sigma)
-    // build K(mu,nu) = D(lambda,sigma) (mu sigma | lambda nu)
+    // containers for J and K 
     std::shared_ptr<Matrix> J (new Matrix(nso,nso));
     std::shared_ptr<Matrix> K (new Matrix(nso,nso));
 
     double ** j_p = J->pointer();
     double ** k_p = K->pointer();
-    for(int mu = 0; mu < nso; ++mu){
-        for(int nu = 0; nu < nso; ++nu){
-            double myJ = 0.0;
-            double myK = 0.0;
-            for(int lambda = 0; lambda < nso; ++lambda){
-                for(int sigma = 0; sigma < nso; ++sigma){
-                    double d = d_p[lambda][sigma];
-                    myJ += d * Jell->ERI_int(mu,nu,lambda,sigma);
-                    myK += d * Jell->ERI_int(mu,sigma,lambda,nu);
-                }
-            }
-            j_p[mu][nu] = myJ / Lfac;
-            k_p[mu][nu] = myK / Lfac;
-       }
-    }
-    // coulomb / exchange contribution to the energy
-    first_energy += 2.0 * Dfirst->vector_dot(J);
-    first_energy -=       Dfirst->vector_dot(K);
-    
-    F->copy(h);
-    outfile->Printf("\n");
-    outfile->Printf("    guess energy %f \n", first_energy);
-    outfile->Printf("\n");
 
+    // convergence parameters
     double e_convergence = options.get_double("E_CONVERGENCE");
     double d_convergence = options.get_double("D_CONVERGENCE");
     int    maxiter       = options.get_int("MAXITER");
