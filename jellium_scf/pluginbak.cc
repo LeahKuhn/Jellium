@@ -114,16 +114,14 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     std::shared_ptr<Matrix> F = (std::shared_ptr<Matrix>)(new Matrix(h));
 
     // eigenvectors / eigenvalues of fock matrix
-    std::shared_ptr<Matrix> Firstevec (new Matrix(nso,nso));
-    std::shared_ptr<Vector> Firsteval (new Vector(nso));
+    std::shared_ptr<Vector> Feval (new Vector(nso));
 
     // diagonalize core hamiltonian, get orbitals
-    std::shared_ptr<Matrix> Cafirst (new Matrix(nso,nso));
-    F->diagonalize(Cafirst,Firsteval);
+    F->diagonalize(Ca,Feval);
 
     // build density matrix core hamiltonian
-    std::shared_ptr<Matrix> Dfirst (new Matrix(nso,nso));
-    double ** d_p = Dfirst->pointer();
+    std::shared_ptr<Matrix> D (new Matrix(nso,nso));
+    double ** d_p = D->pointer();
     for(int mu = 0; mu < nso; ++mu){
         for(int nu = 0; nu< nso; ++nu){
             double dum = 0.0;
@@ -134,7 +132,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         }
     }
 
-    double first_energy = 0.0;
+    double energy = D->vector_dot(h) + D->vector_dot(F);
+    outfile->Printf("    initial energy: %20.12lf\n",energy);
+    outfile->Printf("\n");
 
     // containers for J and K 
     std::shared_ptr<Matrix> J (new Matrix(nso,nso));
@@ -154,6 +154,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("              energy");
     outfile->Printf("                |dE|");
     outfile->Printf("                |dD|\n");
+
+    double dele = 0.0;
+    double deld = 0.0;
 
     do {
     
@@ -178,12 +181,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         Fa->add(h);
 
         F->copy(Fa);
-        double energy = 0.0;
-        energy += (nelectron*nelectron/2.0)*Jell->selfval/Lfac;
-        energy += Dfirst->vector_dot(h);
-        energy += Dfirst->vector_dot(Fa);
+        double new_energy = 0.0;
+        new_energy += (nelectron*nelectron/2.0)*Jell->selfval/Lfac;
+        new_energy += D->vector_dot(h);
+        new_energy += D->vector_dot(Fa);
 
-        double density_diff = 0.0;
         std::shared_ptr<Matrix> Fprime = (std::shared_ptr<Matrix>)(new Matrix(F));
         std::shared_ptr<Matrix> Fevec (new Matrix(nso,nso));
         std::shared_ptr<Vector> Feval (new Vector(nso));
@@ -191,32 +193,38 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
         //building density matrix
 
-        std::shared_ptr<Matrix> D (new Matrix(nso,nso));
+        std::shared_ptr<Matrix> Dnew (new Matrix(nso,nso));
+        double ** dnew_p = Dnew->pointer();
         double tmp = 0;
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu < nso; ++nu){
                 for(int i = 0; i < na; ++i){
-                    D->pointer()[mu][nu] += Ca->pointer()[mu][i] * Ca->pointer()[nu][i];
+                    dnew_p[mu][nu] += Ca->pointer()[mu][i] * Ca->pointer()[nu][i];
                 }
             }
         }
 
+        deld = 0.0;
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu < nso; ++nu){
-                density_diff += (D->pointer()[mu][nu] - Dfirst->pointer()[mu][nu])*(D->pointer()[mu][nu] - Dfirst->pointer()[mu][nu]);
+                double dum = d_p[mu][nu] - dnew_p[mu][nu];
+                deld += dum * dum;
             }
         }
-        outfile->Printf("    %6i%20.12lf%20.12lf%20.12lf\n", iter, energy, fabs(energy-first_energy), fabs(sqrt(density_diff)) );
-        double check = fabs(energy-first_energy);
-        first_energy = energy;
-        ++iter;
-        Dfirst->copy(D);
-        if(check < e_convergence && sqrt(density_diff) < d_convergence) {
-            break;
-        }
-    }while(iter < maxiter);
+        deld = sqrt(deld);
 
-    if ( iter == maxiter ) {
+        dele = fabs(new_energy-energy);
+
+        outfile->Printf("    %6i%20.12lf%20.12lf%20.12lf\n", iter, new_energy, dele, deld);
+        energy = new_energy;
+        D->copy(Dnew);
+
+        iter++;
+        if( iter > maxiter ) break;
+
+    }while(dele > e_convergence || deld > d_convergence);
+
+    if ( iter > maxiter ) {
         throw PsiException("jellium scf did not converge.",__FILE__,__LINE__);
     }
 
@@ -224,9 +232,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("      SCF iterations converged!\n");
     outfile->Printf("\n");
 
-    double fock_energy = Dfirst->vector_dot(K);
+    double fock_energy = D->vector_dot(K);
     //V->print();
-    outfile->Printf("    * Jellium HF total energy: %20.12lf\n",first_energy);
+    outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
     outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
     return ref_wfn;
 
