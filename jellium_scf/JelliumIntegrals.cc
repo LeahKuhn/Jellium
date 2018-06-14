@@ -422,6 +422,7 @@ void JelliumIntegrals::compute() {
                           //double dum = PQ->pointer()[P][Q];
   int end_pq = clock();
   outfile->Printf("done.\n");fflush(stdout);
+
   outfile->Printf("\n");
   outfile->Printf("    time for (P|Q) construction: %12.6f\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
   outfile->Printf("\n");
@@ -452,7 +453,8 @@ void JelliumIntegrals::compute() {
           //printf("%f",kinval);
           // Print Kinetic Energy Integral to file
           // Nuclear-attraction Integrals
-          double dum = Vab_Int(n, x, w, mu, nu);
+          //double dum = Vab_Int(n, x, w, mu, nu);
+          double dum = Vab_Int_new(n, x, w, mu, nu,g_tensor, orbitalMax, sqrt_tensor);
           NucAttrac->pointer()[i][j] = dum;
           //NucAttrac->pointer()[j][i] = dum;
 
@@ -641,6 +643,52 @@ double JelliumIntegrals::Vab_Int(int dim, double *xa, double *w, int *a, int *b)
   Vab  -= pq_int(dim, xa, w, 0, 0, 0, qx, qy, qz);
 
   return -Vab;//*8.0/(M_PI * M_PI * M_PI);
+
+}
+
+double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int *b, 
+        std::shared_ptr<Vector> g_tensor, int orbitalMax, std::shared_ptr<Vector> sqrt_tensor) {
+
+    int px, py, pz, qx, qy, qz;
+    double Vab;
+    px = a[0] - b[0];
+    py = a[1] - b[1];
+    pz = a[2] - b[2];
+    
+
+    qx = a[0] + b[0];
+    qy = a[1] + b[1];
+    qz = a[2] + b[2];
+
+    Vab = 0.0;
+ 
+    //make sure to check that these integrals are correct
+
+    //    Cos[px x1] Cos[py y1] Cos[pz z1]
+    Vab  += pq_int_new(dim, px, py, pz,  0,  0,  0, g_tensor, orbitalMax, sqrt_tensor);
+         
+    // -  Cos[qx x1] Cos[py y1] Cos[pz z1]
+    Vab  -= pq_int_new(dim,  0, py, pz, qx,  0,  0, g_tensor, orbitalMax, sqrt_tensor);
+         
+    // -  Cos[px x1] Cos[qy y1] Cos[pz z1]
+    Vab  -= pq_int_new(dim, px,  0, pz,  0, qy,  0, g_tensor, orbitalMax, sqrt_tensor);
+         
+    // +  Cos[qx x1] Cos[qy y1] Cos[pz z1]
+    Vab  += pq_int_new(dim,  0,  0, pz, qx, qy,  0, g_tensor, orbitalMax, sqrt_tensor);
+         
+    // - Cos[px x1] Cos[py y1] Cos[qz z1]  
+    Vab  -= pq_int_new(dim, px, py,  0,  0,  0, qz, g_tensor, orbitalMax, sqrt_tensor);
+         
+    // + Cos[qx x1] Cos[py y1] Cos[qz z1] 
+    Vab  += pq_int_new(dim,  0, py,  0, qx,  0, qz, g_tensor, orbitalMax, sqrt_tensor);
+         
+    // +  Cos[px x1] Cos[qy y1] Cos[qz z1]
+    Vab  += pq_int_new(dim, px,  0,  0,  0, qy, qz, g_tensor, orbitalMax, sqrt_tensor);
+         
+    // - Cos[qx x1] Cos[qy y1] Cos[qz z1]
+    Vab  -= pq_int_new(dim,  0,  0,  0, qx, qy, qz, g_tensor, orbitalMax, sqrt_tensor);
+
+    return -Vab;
 
 }
 
