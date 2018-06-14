@@ -138,6 +138,7 @@ void JelliumIntegrals::compute() {
   // build sqrt(x*x+y*y+z*z)
   outfile->Printf("    build sqrt tensor...."); fflush(stdout);
   sqrt_tensor = std::shared_ptr<Vector>(new Vector(n*n*n));
+  double * s_p = sqrt_tensor->pointer();
   for (int i = 0; i < n; i++) {
       double xval = x[i];
       for (int j = 0; j < n; j++) {
@@ -145,7 +146,7 @@ void JelliumIntegrals::compute() {
           for (int k = 0; k < n; k++) {
               double zval = x[k];
               double val = sqrt(xval*xval+yval*yval+zval*zval);
-              sqrt_tensor->pointer()[i*n*n + j*n + k] = 1.0/val;
+              s_p[i*n*n + j*n + k] = 1.0/val;
           }
       }
   }
@@ -178,8 +179,11 @@ void JelliumIntegrals::compute() {
   //pq_int(orbitalMax, x, w, 1, -2, -3, 4, 2, 0);
   //exit(1);
   PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
+  double ** PQ_p = PQ->pointer();
+
   Ke = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
   NucAttrac = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
+
   for (int px = 0; px < 2*nmax+2; px++) {
       for (int qx = px; qx < 2*nmax+2; qx++) {
 
@@ -207,205 +211,205 @@ void JelliumIntegrals::compute() {
                           // start 
                           P = PQmap[px][py][pz];
                           Q = PQmap[qx][qy][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][py][pz];
                           Q = PQmap[px][qy][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[px][qy][pz];
                           Q = PQmap[qx][py][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][qy][pz];
                           Q = PQmap[px][py][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[px][py][qz];
                           Q = PQmap[qx][qy][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][py][qz];
                           Q = PQmap[px][qy][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[px][qy][qz];
                           Q = PQmap[qx][py][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][qy][qz];
                           Q = PQmap[px][py][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           // pxqx - pyqy
 
                           P = PQmap[py][px][pz];
                           Q = PQmap[qy][qx][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[py][qx][pz];
                           Q = PQmap[qy][px][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][px][pz];
                           Q = PQmap[py][qx][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][qx][pz];
                           Q = PQmap[py][px][qz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[py][px][qz];
                           Q = PQmap[qy][qx][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[py][qx][qz];
                           Q = PQmap[qy][px][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][px][qz];
                           Q = PQmap[py][qx][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][qx][qz];
                           Q = PQmap[py][px][pz];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           // now begins pxqx < pyqy < pzqz
 
                           P = PQmap[pz][px][py];
                           Q = PQmap[qz][qx][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[pz][qx][py];
                           Q = PQmap[qz][px][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[pz][px][qy];
                           Q = PQmap[qz][qx][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[pz][qx][qy];
                           Q = PQmap[qz][px][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][px][py];
                           Q = PQmap[pz][qx][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][qx][py];
                           Q = PQmap[pz][px][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][px][qy];
                           Q = PQmap[pz][qx][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][qx][qy];
                           Q = PQmap[pz][px][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           // pxqx - pyqy
 
                           P = PQmap[pz][py][px];
                           Q = PQmap[qz][qy][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[pz][py][qx];
                           Q = PQmap[qz][qy][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[pz][qy][px];
                           Q = PQmap[qz][py][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[pz][qy][qx];
                           Q = PQmap[qz][py][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][py][px];
                           Q = PQmap[pz][qy][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][py][qx];
                           Q = PQmap[pz][qy][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][qy][px];
                           Q = PQmap[pz][py][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qz][qy][qx];
                           Q = PQmap[pz][py][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           // now begins last set of 16
 
                           P = PQmap[px][pz][py];
                           Q = PQmap[qx][qz][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][pz][py];
                           Q = PQmap[px][qz][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[px][pz][qy];
                           Q = PQmap[qx][qz][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][pz][qy];
                           Q = PQmap[px][qz][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[px][qz][py];
                           Q = PQmap[qx][pz][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][qz][py];
                           Q = PQmap[px][pz][qy];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[px][qz][qy];
                           Q = PQmap[qx][pz][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qx][qz][qy];
                           Q = PQmap[px][pz][py];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           // pxqx - pyqy
 
                           P = PQmap[py][pz][px];
                           Q = PQmap[qy][qz][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[py][pz][qx];
                           Q = PQmap[qy][qz][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][pz][px];
                           Q = PQmap[py][qz][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][pz][qx];
                           Q = PQmap[py][qz][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[py][qz][px];
                           Q = PQmap[qy][pz][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[py][qz][qx];
                           Q = PQmap[qy][pz][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][qz][px];
                           Q = PQmap[py][pz][qx];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                           P = PQmap[qy][qz][qx];
                           Q = PQmap[py][pz][px];
-                          PQ->pointer()[P][Q] = dum;
+                          PQ_p[P][Q] = dum;
 
                       }
                   }
@@ -421,11 +425,11 @@ void JelliumIntegrals::compute() {
   outfile->Printf("\n");
   outfile->Printf("    time for (P|Q) construction: %12.6f\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
   outfile->Printf("\n");
-  outfile->Printf("canonical integrals");
+  //outfile->Printf("canonical integrals");
 
   // Four nested loops to compute lower triange of electron repulsion integrals - roughly have of the non-unique integrals
   // will not be computed, but this is still not exploiting symmetry fully
-  outfile->Printf("    build ERIs...........");fflush(stdout);
+  outfile->Printf("    build potential integrals.....");fflush(stdout);
   int start = clock();
   for (int i=0; i<orbitalMax; i++) {
       mu[0] = MO[i][0];
@@ -455,28 +459,28 @@ void JelliumIntegrals::compute() {
           // Print Nuclear-attraction integral to file
 
           // loop over indices for electron 2       
-          for (int k=0; k<orbitalMax; k++) {
-              lam[0] = MO[k][0];
-              lam[1] = MO[k][1];
-              lam[2] = MO[k][2];
-              for (int l=k; l<orbitalMax; l++) {
-                  sig[0] = MO[l][0];
-                  sig[1] = MO[l][1];
-                  sig[2] = MO[l][2];
+          //for (int k=0; k<orbitalMax; k++) {
+          //    lam[0] = MO[k][0];
+          //    lam[1] = MO[k][1];
+          //    lam[2] = MO[k][2];
+          //    for (int l=k; l<orbitalMax; l++) {
+          //        sig[0] = MO[l][0];
+          //        sig[1] = MO[l][1];
+          //        sig[2] = MO[l][2];
    
-                  // Compute 2-electron integral
-                 // double erival = ERI_new(mu, nu, lam, sig, PQ->pointer(), PQmap);
-                 // double dum = ERI(n, x, w, mu, nu, lam, sig);
-                 // if ( fabs(erival - dum) > 1e-14 ) {
-                 //     outfile->Printf("uh-oh. %20.12lf %20.12lf\n",erival,dum);
-                 // }else {
-                 //     printf("sweet! %20.12lf %20.12lf\n",erival,dum);
-                 // }
+          //        // Compute 2-electron integral
+          //       // double erival = ERI_new(mu, nu, lam, sig, PQ->pointer(), PQmap);
+          //       // double dum = ERI(n, x, w, mu, nu, lam, sig);
+          //       // if ( fabs(erival - dum) > 1e-14 ) {
+          //       //     outfile->Printf("uh-oh. %20.12lf %20.12lf\n",erival,dum);
+          //       // }else {
+          //       //     printf("sweet! %20.12lf %20.12lf\n",erival,dum);
+          //       // }
 
-                  // Print ERI to file
-                  //fprintf(erifp," %i  %i  %i  %i  %17.14f\n",i+1,j+1,k+1,l+1,erival);
-             }
-          }
+          //        // Print ERI to file
+          //        //fprintf(erifp," %i  %i  %i  %i  %17.14f\n",i+1,j+1,k+1,l+1,erival);
+          //   }
+          //}
       }
   }
   // hey Danny, why isn't this tensor symmetric?
@@ -490,7 +494,7 @@ void JelliumIntegrals::compute() {
   int end = clock();
   outfile->Printf("done.\n");fflush(stdout);
   outfile->Printf("\n");
-  outfile->Printf("    time for eri construction:   %12.6f\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
+  outfile->Printf("    time for potential integral construction:   %12.6f\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
   outfile->Printf("\n");
 
   // Compute self energy
@@ -899,23 +903,24 @@ double JelliumIntegrals::pq_int(int dim, double *xa, double *w, int px, int py, 
 }
 
 double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, std::shared_ptr<Vector> g_tensor, int orbitalMax, std::shared_ptr<Vector> sqrt_tensor) {
-    double pi = M_PI;
     if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0){
         return 0.;
     }
+    double * s_p = sqrt_tensor->pointer();
+    double * g_p = g_tensor->pointer();
     double sum = 0.;
     for (int i = 0; i < dim; i++){
-        double gx = g_tensor->pointer()[i * orbitalMax * orbitalMax + px * orbitalMax + qx];
+        double gx = g_p[i * orbitalMax * orbitalMax + px * orbitalMax + qx];
         for (int j = 0; j < dim; j++){
-            double gxgy = gx * g_tensor->pointer()[j * orbitalMax * orbitalMax + py * orbitalMax + qy];
+            double gxgy = gx * g_p[j * orbitalMax * orbitalMax + py * orbitalMax + qy];
             for (int k = 0; k < dim; k++){
-                double gxgygz = gxgy * g_tensor->pointer()[k * orbitalMax * orbitalMax + pz * orbitalMax + qz];
-                sum += gxgygz * sqrt_tensor->pointer()[i*dim*dim + j*dim + k];
+                double gxgygz = gxgy * g_p[k * orbitalMax * orbitalMax + pz * orbitalMax + qz];
+                sum += gxgygz * s_p[i*dim*dim + j*dim + k];
                 //printf("  sum %f  x %f  y %f  z %f\n",sum, x, y, z);
             }
         }
     }
-    return 8. * sum / pi;
+    return 8.0 * sum / M_PI;
 }
 
 /* 
