@@ -514,49 +514,6 @@ void JelliumIntegrals::compute() {
 
 double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
 
-   //int * lam = (int*)malloc(3 * sizeof(int));
-   //int * sig = (int*)malloc(3 * sizeof(int));
-   //int * nu  = (int*)malloc(3 * sizeof(int));
-   //int * mu  = (int*)malloc(3 * sizeof(int));
-   //for (int i = 0; i < 3; ++i){
-   //    mu[i] = MO[a][i];
-   //    nu[i] = MO[b][i];
-   //    lam[i] = MO[c][i];
-   //    sig[i] = MO[d][i];
-   //}
-
-   //std::shared_ptr<Vector> lam (new Vector(3));
-   //std::shared_ptr<Vector> sig (new Vector(3));
-   //std::shared_ptr<Vector> nu (new Vector(3));
-   //std::shared_ptr<Vector> mu (new Vector(3));
-   //for (int i = 0; i < 3; ++i){
-   //    mu->pointer()[i] = MO[a][i];
-   //    nu->pointer()[i] = MO[b][i];
-   //    lam->pointer()[i] = MO[c][i];
-   //    sig->pointer()[i] = MO[d][i];
-   //}
-
-
-   //mu->pointer()[0] = MO[a][0];
-   //mu->pointer()[1] = MO[a][1];
-   //mu->pointer()[2] = MO[a][2];
-   //nu->pointer()[0] = MO[b][0];
-   //nu->pointer()[1] = MO[b][1];
-   //nu->pointer()[2] = MO[b][2];
-   //lam->pointer()[0] = MO[c][0];
-   //lam->pointer()[1] = MO[c][1];
-   //lam->pointer()[2] = MO[c][2];
-   //sig->pointer()[0] = MO[d][0];
-   //sig->pointer()[1] = MO[d][1];
-   //sig->pointer()[2] = MO[d][2];
-
-   //double val = ERI_new(mu, nu, lam, sig, PQ->pointer(), PQmap);
-   //double val = ERI_new(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
-   //free(mu);
-   //free(nu);
-   //free(lam);
-   //free(sig);
-   //return val;
    //return ERI_new(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
    return ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
 }
@@ -805,13 +762,6 @@ double JelliumIntegrals::ERI(int dim, double *xa, double *w, int *a, int *b, int
 
 double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
 
-  //int * x1 = (int *)malloc(3*sizeof(int));
-  //int * x2 = (int *)malloc(3*sizeof(int));
-  //int * y1 = (int *)malloc(3*sizeof(int));
-  //int * y2 = (int *)malloc(3*sizeof(int));
-  //int * z1 = (int *)malloc(3*sizeof(int));
-  //int * z2 = (int *)malloc(3*sizeof(int));
-
   //x1[0] = ax-bx, x1[1] = ax+bx
   x1[0] = a[0] - b[0];
   x1[1] = a[0] + b[0];
@@ -827,21 +777,6 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   y2[1] = c[1] + d[1];
   z2[0] = c[2] - d[2];
   z2[1] = c[2] + d[2];
-
- //x1[0] = (int)(a->pointer()[0] - b->pointer()[0]);
- //x1[1] = (int)(a->pointer()[0] + b->pointer()[0]);
- //y1[0] = (int)(a->pointer()[1] - b->pointer()[1]);
- //y1[1] = (int)(a->pointer()[1] + b->pointer()[1]);
- //z1[0] = (int)(a->pointer()[2] - b->pointer()[2]);
- //z1[1] = (int)(a->pointer()[2] + b->pointer()[2]);
-
- ////x1[0] = cx-dx, x1[1] = cx+dx
- //x2[0] = (int)(c->pointer()[0] - d->pointer()[0]);
- //x2[1] = (int)(c->pointer()[0] + d->pointer()[0]);
- //y2[0] = (int)(c->pointer()[1] - d->pointer()[1]);
- //y2[1] = (int)(c->pointer()[1] + d->pointer()[1]);
- //z2[0] = (int)(c->pointer()[2] - d->pointer()[2]);
- //z2[1] = (int)(c->pointer()[2] + d->pointer()[2]);
 
   // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
 
@@ -1356,10 +1291,10 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
       //}
   //}
 
- 
   return eri_val;
 
 }
+
 //double JelliumIntegrals::ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap) {
 double JelliumIntegrals::ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
 
