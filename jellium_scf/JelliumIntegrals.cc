@@ -107,7 +107,7 @@ void JelliumIntegrals::compute() {
   sig  = (int*)malloc(3*sizeof(int));
   lam  = (int*)malloc(3*sizeof(int));
 
-  nmax=3;
+  nmax=4;
 
   std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
   MO  = MAT_INT(3*nmax*nmax*nmax,3);
