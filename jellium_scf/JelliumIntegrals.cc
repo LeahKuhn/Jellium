@@ -204,7 +204,7 @@ void JelliumIntegrals::compute() {
 
                           //if ( P > Q ) continue;
 
-                          double dum = pq_int_new(n, px, py, pz, qx, qy, qz, g_tensor,orbitalMax,sqrt_tensor);
+                          double dum = pq_int_new(n, px, py, pz, qx, qy, qz);
 //                         printf("dum %f",dum); 
                           int P,Q;
 
@@ -454,7 +454,7 @@ void JelliumIntegrals::compute() {
           // Print Kinetic Energy Integral to file
           // Nuclear-attraction Integrals
           //double dum = Vab_Int(n, x, w, mu, nu);
-          double dum = Vab_Int_new(n, x, w, mu, nu,g_tensor, orbitalMax, sqrt_tensor);
+          double dum = Vab_Int_new(n, x, w, mu, nu);
           NucAttrac->pointer()[i][j] = dum;
           //NucAttrac->pointer()[j][i] = dum;
 
@@ -604,8 +604,7 @@ double JelliumIntegrals::Vab_Int(int dim, double *xa, double *w, int *a, int *b)
 
 }
 
-double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int *b, 
-        std::shared_ptr<Vector> g_tensor, int orbitalMax, std::shared_ptr<Vector> sqrt_tensor) {
+double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int *b) {
 
     int px, py, pz, qx, qy, qz;
     double Vab;
@@ -623,28 +622,28 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
     //make sure to check that these integrals are correct
 
     //    Cos[px x1] Cos[py y1] Cos[pz z1]
-    Vab  += pq_int_new(dim, px, py, pz,  0,  0,  0, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  += pq_int_new(dim, px, py, pz,  0,  0,  0);
          
     // -  Cos[qx x1] Cos[py y1] Cos[pz z1]
-    Vab  -= pq_int_new(dim,  0, py, pz, qx,  0,  0, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  -= pq_int_new(dim,  0, py, pz, qx,  0,  0);
          
     // -  Cos[px x1] Cos[qy y1] Cos[pz z1]
-    Vab  -= pq_int_new(dim, px,  0, pz,  0, qy,  0, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  -= pq_int_new(dim, px,  0, pz,  0, qy,  0);
          
     // +  Cos[qx x1] Cos[qy y1] Cos[pz z1]
-    Vab  += pq_int_new(dim,  0,  0, pz, qx, qy,  0, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  += pq_int_new(dim,  0,  0, pz, qx, qy,  0);
          
     // - Cos[px x1] Cos[py y1] Cos[qz z1]  
-    Vab  -= pq_int_new(dim, px, py,  0,  0,  0, qz, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  -= pq_int_new(dim, px, py,  0,  0,  0, qz);
          
     // + Cos[qx x1] Cos[py y1] Cos[qz z1] 
-    Vab  += pq_int_new(dim,  0, py,  0, qx,  0, qz, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  += pq_int_new(dim,  0, py,  0, qx,  0, qz);
          
     // +  Cos[px x1] Cos[qy y1] Cos[qz z1]
-    Vab  += pq_int_new(dim, px,  0,  0,  0, qy, qz, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  += pq_int_new(dim, px,  0,  0,  0, qy, qz);
          
     // - Cos[qx x1] Cos[qy y1] Cos[qz z1]
-    Vab  -= pq_int_new(dim,  0,  0,  0, qx, qy, qz, g_tensor, orbitalMax, sqrt_tensor);
+    Vab  -= pq_int_new(dim,  0,  0,  0, qx, qy, qz);
 
     return -Vab;
 
@@ -1443,7 +1442,7 @@ double JelliumIntegrals::pq_int(int dim, double *xa, double *w, int px, int py, 
   }
 }
 
-double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, std::shared_ptr<Vector> g_tensor, int orbitalMax, std::shared_ptr<Vector> sqrt_tensor) {
+double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz) {
     if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0){
         return 0.;
     }
