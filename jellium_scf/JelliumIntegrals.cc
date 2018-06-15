@@ -859,13 +859,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -873,14 +873,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
 
@@ -889,13 +889,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -903,15 +903,15 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
-              }
+                      //}
+                  //}
+              //}
           }
-          if ( y2[1] >= 0 ) {
+          //if ( y2[1] >= 0 ) {
               if ( y1[0] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
@@ -921,13 +921,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -935,14 +935,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
 
@@ -951,13 +951,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -965,16 +965,16 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
-              }
-          }
+                      //}
+                  //}
+              //}
+          //}
       }
-      if ( z1[1] >= 0 ) {
+      //if ( z1[1] >= 0 ) {
           if ( y2[0] >= 0 ) {
               if ( y1[0] >= 0 ) {
                   if ( x2[0] >= 0 ) {
@@ -985,13 +985,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -999,14 +999,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
 
@@ -1015,13 +1015,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1029,15 +1029,15 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
-              }
+                      //}
+                  //}
+              //}
           }
-          if ( y2[1] >= 0 ) {
+          //if ( y2[1] >= 0 ) {
               if ( y1[0] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
@@ -1047,13 +1047,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1061,14 +1061,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
 
@@ -1077,13 +1077,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1091,17 +1091,17 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
-              }
-          }
-      }
+                      //}
+                  //}
+              //}
+          //}
+      //}
   }
-  if ( z2[1] >= 0 ) {
+  //if ( z2[1] >= 0 ) {
       if ( z1[0] >= 0 ) {
           if ( y2[0] >= 0 ) {
               if ( y1[0] >= 0 ) {
@@ -1113,13 +1113,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1127,14 +1127,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
 
@@ -1143,13 +1143,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1157,15 +1157,15 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
-              }
+                      //}
+                  //}
+              //}
           }
-          if ( y2[1] >= 0 ) {
+          //if ( y2[1] >= 0 ) {
               if ( y1[0] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
@@ -1175,13 +1175,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1189,14 +1189,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
 
@@ -1205,13 +1205,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1219,16 +1219,16 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
-              }
-          }
+                      //}
+                  //}
+              //}
+          //}
       }
-      if ( z1[1] >= 0 ) {
+      //if ( z1[1] >= 0 ) {
           if ( y2[0] >= 0 ) {
               if ( y1[0] >= 0 ) {
                   if ( x2[0] >= 0 ) {
@@ -1239,13 +1239,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1253,14 +1253,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
 
@@ -1269,13 +1269,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1283,15 +1283,15 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
-              }
+                      //}
+                  //}
+              //}
           }
-          if ( y2[1] >= 0 ) {
+          //if ( y2[1] >= 0 ) {
               if ( y1[0] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
@@ -1301,13 +1301,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1315,14 +1315,14 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
-                  }
+                      //}
+                  //}
               }
-              if ( y1[1] >= 0 ) {
+              //if ( y1[1] >= 0 ) {
                   if ( x2[0] >= 0 ) {
                       int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
 
@@ -1331,13 +1331,13 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val += dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val -= dum;
-                      }
+                      //}
                   }
-                  if ( x2[1] >= 0 ) {
+                  //if ( x2[1] >= 0 ) {
                       int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
 
                       if ( x1[0] >= 0 ) {
@@ -1345,16 +1345,16 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
                           double dum = PQ[P][Q];
                           eri_val -= dum;
                       }
-                      if ( x1[1] >= 0 ) {
+                      //if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
                           double dum = PQ[P][Q];
                           eri_val += dum;
-                      }
-                  }
-              }
-          }
-      }
-  }
+                      //}
+                  //}
+              //}
+          //}
+      //}
+  //}
 
  
   return eri_val;
