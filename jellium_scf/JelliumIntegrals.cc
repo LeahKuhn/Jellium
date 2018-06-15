@@ -557,7 +557,8 @@ double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
    //free(lam);
    //free(sig);
    //return val;
-   return ERI_new(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+   //return ERI_new(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+   return ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
 }
 
 double JelliumIntegrals::g_pq(int p, int q, double x) {
@@ -802,6 +803,130 @@ double JelliumIntegrals::ERI(int dim, double *xa, double *w, int *a, int *b, int
 
 }
 
+double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
+
+  //int * x1 = (int *)malloc(3*sizeof(int));
+  //int * x2 = (int *)malloc(3*sizeof(int));
+  //int * y1 = (int *)malloc(3*sizeof(int));
+  //int * y2 = (int *)malloc(3*sizeof(int));
+  //int * z1 = (int *)malloc(3*sizeof(int));
+  //int * z2 = (int *)malloc(3*sizeof(int));
+
+  //x1[0] = ax-bx, x1[1] = ax+bx
+  x1[0] = a[0] - b[0];
+  x1[1] = a[0] + b[0];
+  y1[0] = a[1] - b[1];
+  y1[1] = a[1] + b[1];
+  z1[0] = a[2] - b[2];
+  z1[1] = a[2] + b[2];
+
+  //x1[0] = cx-dx, x1[1] = cx+dx
+  x2[0] = c[0] - d[0];
+  x2[1] = c[0] + d[0];
+  y2[0] = c[1] - d[1];
+  y2[1] = c[1] + d[1];
+  z2[0] = c[2] - d[2];
+  z2[1] = c[2] + d[2];
+
+ //x1[0] = (int)(a->pointer()[0] - b->pointer()[0]);
+ //x1[1] = (int)(a->pointer()[0] + b->pointer()[0]);
+ //y1[0] = (int)(a->pointer()[1] - b->pointer()[1]);
+ //y1[1] = (int)(a->pointer()[1] + b->pointer()[1]);
+ //z1[0] = (int)(a->pointer()[2] - b->pointer()[2]);
+ //z1[1] = (int)(a->pointer()[2] + b->pointer()[2]);
+
+ ////x1[0] = cx-dx, x1[1] = cx+dx
+ //x2[0] = (int)(c->pointer()[0] - d->pointer()[0]);
+ //x2[1] = (int)(c->pointer()[0] + d->pointer()[0]);
+ //y2[0] = (int)(c->pointer()[1] - d->pointer()[1]);
+ //y2[1] = (int)(c->pointer()[1] + d->pointer()[1]);
+ //z2[0] = (int)(c->pointer()[2] - d->pointer()[2]);
+ //z2[1] = (int)(c->pointer()[2] + d->pointer()[2]);
+
+  // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
+
+  double eri_val = 0.0;
+
+  short sign[2] = {1,-1};
+
+  for (short i = 0; i < 2; i++) {
+      if ( z2[i] < 0 ) continue;
+      short faci = sign[i];
+      for (short j = 0; j < 2; j++) {
+          if ( z1[j] < 0 ) continue;
+          short facij = faci * sign[j];
+          for (short k = 0; k < 2; k++) {
+              if ( y2[k] < 0 ) continue;
+              short facijk = facij * sign[k];
+              for (short l = 0; l < 2; l++) { 
+                  if ( y1[l] < 0 ) continue;
+                  short facijkl = facijk * sign[l];
+                  for (short m = 0; m < 2; m++) {
+                      if ( x2[m] < 0 ) continue;
+                      short facijklm = facijkl * sign[m];
+
+                      int Q = PQmap[ x2[m] ][ y2[k] ][ z2[i] ];
+
+                      if ( x1[0] >= 0 ) {
+                          int P = PQmap[ x1[0] ][ y1[l] ][ z1[j] ];
+                          double dum = PQ[P][Q];
+                          eri_val += facijklm * dum;
+                      }
+                      if ( x1[1] >= 0 ) {
+                          int P = PQmap[ x1[1] ][ y1[l] ][ z1[j] ];
+                          double dum = PQ[P][Q];
+                          eri_val -= facijklm * dum;
+                      }
+
+                      //for (short n = 0; n < 2; n++) {
+                      //    if ( x1[n] < 0 ) continue;
+                      //    short facijklmn = facijklm * sign[n];
+   
+                      //    // Uncomment to see the functions being integrated in each call to pq_int 
+                      //    //printf(" + %f Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] \n",
+                      //    //fac,cx1[n],cx2[m],cy1[l],cy2[k],cz1[j],cz2[i]);
+                      //    // recall pq_int args are -> dim, *xa, *w, px, py, pz, qx, qy, qz
+                      //    // order of indices to get these values is a bit strange, see print statement
+                      //    // for example of ordering!
+
+                      //    //double dum = pq_int(dim, xa, w, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i]);
+
+                      //    int P = PQmap[ x1[n] ][ y1[l] ][ z1[j] ];
+                      //    //int Q = PQmap[ x2[m] ][ y2[k] ][ z2[i] ];
+                      //    //if ( P == -999 || Q == -999 ) {
+                      //    //    outfile->Printf("\n");
+                      //    //    outfile->Printf("    well, something is wrong with the indexing.\n");
+                      //    //    outfile->Printf("    %5i %5i\n",P,Q);
+                      //    //    outfile->Printf("    %5i %5i %5i; %5i %5i %5i\n",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
+                      //    //    outfile->Printf("\n");
+                      //    //    exit(1);
+                      //    //}
+                      //    double dum = PQ[P][Q];
+
+                      //    //double dum = pq_int_new(dim, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],g_tensor,orbitalMax,sqrt_tensor);
+
+                      //    // TABLE IV DEBUG LINE!!!!!!
+                      //   // printf("  (%d %d %d | %d %d %d) -> %17.14f\n",x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],dum);
+                      //    eri_val += facijklmn * dum;
+
+                      //}
+                  } 
+              }
+          }
+      }
+  }
+
+ 
+  //free(x1);
+  //free(x2);
+  //free(y1);
+  //free(y2);
+  //free(z1);
+  //free(z2);
+
+  return eri_val;
+
+}
 //double JelliumIntegrals::ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap) {
 double JelliumIntegrals::ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
 

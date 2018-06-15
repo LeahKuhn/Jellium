@@ -82,6 +82,7 @@ class JelliumIntegrals{
         std::shared_ptr<Vector> g_tensor, int orbitalMax, std::shared_ptr<Vector> sqrt_tensor);
 
     //double ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap);
+    double ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap);
     double ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap);
     double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz, std::shared_ptr<Vector> g_tensor,int orbitalMax, std::shared_ptr<Vector> sqrt_tensor);
     
