@@ -861,56 +861,36 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
               for (short l = 0; l < 2; l++) { 
                   if ( y1[l] < 0 ) continue;
                   short facijkl = facijk * sign[l];
-                  for (short m = 0; m < 2; m++) {
-                      if ( x2[m] < 0 ) continue;
-                      short facijklm = facijkl * sign[m];
 
-                      int Q = PQmap[ x2[m] ][ y2[k] ][ z2[i] ];
+                  if ( x2[0] >= 0 ) {
+                      int Q = PQmap[ x2[0] ][ y2[k] ][ z2[i] ];
 
                       if ( x1[0] >= 0 ) {
                           int P = PQmap[ x1[0] ][ y1[l] ][ z1[j] ];
                           double dum = PQ[P][Q];
-                          eri_val += facijklm * dum;
+                          eri_val += facijkl * dum;
                       }
                       if ( x1[1] >= 0 ) {
                           int P = PQmap[ x1[1] ][ y1[l] ][ z1[j] ];
                           double dum = PQ[P][Q];
-                          eri_val -= facijklm * dum;
+                          eri_val -= facijkl * dum;
                       }
+                  }
+                  if ( x2[1] >= 0 ) {
+                      int Q = PQmap[ x2[1] ][ y2[k] ][ z2[i] ];
 
-                      //for (short n = 0; n < 2; n++) {
-                      //    if ( x1[n] < 0 ) continue;
-                      //    short facijklmn = facijklm * sign[n];
-   
-                      //    // Uncomment to see the functions being integrated in each call to pq_int 
-                      //    //printf(" + %f Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] \n",
-                      //    //fac,cx1[n],cx2[m],cy1[l],cy2[k],cz1[j],cz2[i]);
-                      //    // recall pq_int args are -> dim, *xa, *w, px, py, pz, qx, qy, qz
-                      //    // order of indices to get these values is a bit strange, see print statement
-                      //    // for example of ordering!
+                      if ( x1[0] >= 0 ) {
+                          int P = PQmap[ x1[0] ][ y1[l] ][ z1[j] ];
+                          double dum = PQ[P][Q];
+                          eri_val -= facijkl * dum;
+                      }
+                      if ( x1[1] >= 0 ) {
+                          int P = PQmap[ x1[1] ][ y1[l] ][ z1[j] ];
+                          double dum = PQ[P][Q];
+                          eri_val += facijkl * dum;
+                      }
+                  }
 
-                      //    //double dum = pq_int(dim, xa, w, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i]);
-
-                      //    int P = PQmap[ x1[n] ][ y1[l] ][ z1[j] ];
-                      //    //int Q = PQmap[ x2[m] ][ y2[k] ][ z2[i] ];
-                      //    //if ( P == -999 || Q == -999 ) {
-                      //    //    outfile->Printf("\n");
-                      //    //    outfile->Printf("    well, something is wrong with the indexing.\n");
-                      //    //    outfile->Printf("    %5i %5i\n",P,Q);
-                      //    //    outfile->Printf("    %5i %5i %5i; %5i %5i %5i\n",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
-                      //    //    outfile->Printf("\n");
-                      //    //    exit(1);
-                      //    //}
-                      //    double dum = PQ[P][Q];
-
-                      //    //double dum = pq_int_new(dim, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],g_tensor,orbitalMax,sqrt_tensor);
-
-                      //    // TABLE IV DEBUG LINE!!!!!!
-                      //   // printf("  (%d %d %d | %d %d %d) -> %17.14f\n",x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],dum);
-                      //    eri_val += facijklmn * dum;
-
-                      //}
-                  } 
               }
           }
       }
