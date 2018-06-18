@@ -157,7 +157,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
     double dele = 0.0;
     double deld = 0.0;
-
+    
     do {
     
         for(int mu = 0; mu < nso; ++mu){

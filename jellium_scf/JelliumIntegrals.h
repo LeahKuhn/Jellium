@@ -67,6 +67,7 @@ class JelliumIntegrals{
     int *** PQmap;
     int orbitalMax;
     int nmax = 0;
+    double pi;
     double length;
     /// Options object
     Options & options_;
@@ -94,7 +95,6 @@ class JelliumIntegrals{
     int * y2;
     int * z1;
     int * z2;
-
 };
 
 }}

@@ -107,7 +107,7 @@ void JelliumIntegrals::compute() {
   sig  = (int*)malloc(3*sizeof(int));
   lam  = (int*)malloc(3*sizeof(int));
 
-  nmax=4;
+  nmax=10;
 
   std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
   MO  = MAT_INT(3*nmax*nmax*nmax,3);
@@ -501,7 +501,6 @@ void JelliumIntegrals::compute() {
 
   // Compute self energy
   selfval = E0_Int(n, x, w);
-  //outfile->Printf("%f",E0_Int(n, x, w));
   // Print to file
   //fprintf(selffp, "  %17.14f\n",selfval); 
   
@@ -521,9 +520,9 @@ double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
 double JelliumIntegrals::g_pq(int p, int q, double x) {
   int d = (abs(p-q));
   double pi = M_PI;
-  if(q < 0 || p < 0){
-     return 0;
-  }
+  //if(q < 0 || p < 0){
+  //   return 0;
+  //}
   if (p == q && p == 0) {
     return 1.0 - x;
   }
@@ -608,9 +607,9 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
 
     int px, py, pz, qx, qy, qz;
     double Vab;
-    px = a[0] - b[0];
-    py = a[1] - b[1];
-    pz = a[2] - b[2];
+    px = abs(a[0] - b[0]);
+    py = abs(a[1] - b[1]);
+    pz = abs(a[2] - b[2]);
     
 
     qx = a[0] + b[0];
@@ -762,20 +761,20 @@ double JelliumIntegrals::ERI(int dim, double *xa, double *w, int *a, int *b, int
 double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
 
   //x1[0] = ax-bx, x1[1] = ax+bx
-  x1[0] = a[0] - b[0];
-  x1[1] = a[0] + b[0];
-  y1[0] = a[1] - b[1];
-  y1[1] = a[1] + b[1];
-  z1[0] = a[2] - b[2];
-  z1[1] = a[2] + b[2];
+  x1[0] = abs(a[0] - b[0]);
+  x1[1] = abs(a[0] + b[0]);
+  y1[0] = abs(a[1] - b[1]);
+  y1[1] = abs(a[1] + b[1]);
+  z1[0] = abs(a[2] - b[2]);
+  z1[1] = abs(a[2] + b[2]);
 
-  //x1[0] = cx-dx, x1[1] = cx+dx
-  x2[0] = c[0] - d[0];
-  x2[1] = c[0] + d[0];
-  y2[0] = c[1] - d[1];
-  y2[1] = c[1] + d[1];
-  z2[0] = c[2] - d[2];
-  z2[1] = c[2] + d[2];
+  //x1[0] abs(= cx-dx, x1)[1] = cx+dx
+  x2[0] = abs(c[0] - d[0]);
+  x2[1] = abs(c[0] + d[0]);
+  y2[0] = abs(c[1] - d[1]);
+  y2[1] = abs(c[1] + d[1]);
+  z2[0] = abs(c[2] - d[2]);
+  z2[1] = abs(c[2] + d[2]);
 
   // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
 
