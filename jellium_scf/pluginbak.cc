@@ -122,7 +122,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     // build density matrix core hamiltonian
     std::shared_ptr<Matrix> D (new Matrix(nso,nso));
     double ** d_p = D->pointer();
-    //#pragma omp parallel for
+    #pragma omp parallel for 
     for(int mu = 0; mu < nso; ++mu){
         for(int nu = 0; nu< nso; ++nu){
             double dum = 0.0;
@@ -198,7 +198,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         std::shared_ptr<Matrix> Dnew (new Matrix(nso,nso));
         double ** dnew_p = Dnew->pointer();
         double tmp = 0;
-        //#pragma omp parallel for
+        #pragma omp parallel for
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu < nso; ++nu){
                 for(int i = 0; i < na; ++i){

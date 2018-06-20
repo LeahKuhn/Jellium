@@ -1213,16 +1213,20 @@ double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int
     //}
     double * s_p = sqrt_tensor->pointer();
     double * g_p = g_tensor->pointer();
-    double sum = 0.;
+    double sum = 0.0;
+    double tmp_gxgygz = 0.0;
+    //double tmp_gxgy = 0.0;
     for (int i = 0; i < dim; i++){
         double gx = g_p[i * orbitalMax * orbitalMax + px * orbitalMax + qx];
         for (int j = 0; j < dim; j++){
-            double gxgy = gx * g_p[j * orbitalMax * orbitalMax + py * orbitalMax + qy];
+            double gxgy = gx*g_p[j * orbitalMax * orbitalMax + py * orbitalMax + qy];
             for (int k = 0; k < dim; k++){
-                double gxgygz = gxgy * g_p[k * orbitalMax * orbitalMax + pz * orbitalMax + qz];
-                sum += gxgygz * s_p[i*dim*dim + j*dim + k];
+                double gxgygz = g_p[k * orbitalMax * orbitalMax + pz * orbitalMax + qz];
+                tmp_gxgygz += gxgygz * s_p[i*dim*dim + j*dim + k];
                 //printf("  sum %f  x %f  y %f  z %f\n",sum, x, y, z);
             }
+            sum = tmp_gxgygz * gxgy + sum;
+            tmp_gxgygz = 0.0;
         }
     }
     return 8.0 * sum / M_PI;
