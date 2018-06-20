@@ -779,532 +779,281 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
 
   //x1[0] = ax-bx, x1[1] = ax+bx
   x1[0] = abs(a[0] - b[0]);
-  x1[1] = abs(a[0] + b[0]);
   y1[0] = abs(a[1] - b[1]);
-  y1[1] = abs(a[1] + b[1]);
   z1[0] = abs(a[2] - b[2]);
-  z1[1] = abs(a[2] + b[2]);
+
+  x1[1] = a[0] + b[0];
+  y1[1] = a[1] + b[1];
+  z1[1] = a[2] + b[2];
 
   //x1[0] abs(= cx-dx, x1)[1] = cx+dx
   x2[0] = abs(c[0] - d[0]);
-  x2[1] = abs(c[0] + d[0]);
   y2[0] = abs(c[1] - d[1]);
-  y2[1] = abs(c[1] + d[1]);
   z2[0] = abs(c[2] - d[2]);
-  z2[1] = abs(c[2] + d[2]);
+
+  x2[1] = c[0] + d[0];
+  y2[1] = c[1] + d[1];
+  z2[1] = c[2] + d[2];
 
   // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
 
   double eri_val = 0.0;
 
-  if ( z2[0] >= 0 ) {
-      if ( z1[0] >= 0 ) {
-          if ( y2[0] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+  int Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+  int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              //}
-          }
-          //if ( y2[1] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+  Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              //}
-          //}
-      }
-      //if ( z1[1] >= 0 ) {
-          if ( y2[0] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              //}
-          }
-          //if ( y2[1] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              //}
-          //}
-      //}
-  }
-  //if ( z2[1] >= 0 ) {
-      if ( z1[0] >= 0 ) {
-          if ( y2[0] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              //}
-          }
-          //if ( y2[1] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              //}
-          //}
-      }
-      //if ( z1[1] >= 0 ) {
-          if ( y2[0] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+  Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              //}
-          }
-          //if ( y2[1] >= 0 ) {
-              if ( y1[0] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  //}
-              }
-              //if ( y1[1] >= 0 ) {
-                  if ( x2[0] >= 0 ) {
-                      int Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+  Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      //}
-                  }
-                  //if ( x2[1] >= 0 ) {
-                      int Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
 
-                      if ( x1[0] >= 0 ) {
-                          int P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val -= dum;
-                      }
-                      //if ( x1[1] >= 0 ) {
-                          int P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
-                          double dum = PQ[P][Q];
-                          eri_val += dum;
-                      //}
-                  //}
-              //}
-          //}
-      //}
-  //}
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+  P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  eri_val -= PQ[P][Q];
+
+  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  eri_val += PQ[P][Q];
 
   return eri_val;
 
