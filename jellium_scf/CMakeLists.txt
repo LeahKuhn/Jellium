@@ -32,6 +32,8 @@ cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
 project(jellium_scf CXX)
 find_package(psi4 1.1 REQUIRED)
+find_package(OpenMP)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 
 if(testing)
   message("**********************")
