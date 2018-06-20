@@ -47,6 +47,15 @@
 
 #include "JelliumIntegrals.h"
 #include "Legendre.h"
+#include<omp.h>
+
+#ifdef _OPENMP
+    #include<omp.h>
+#else
+    #define omp_get_wtime() ( (double)clock() / CLOCKS_PER_SEC )
+    #define omp_get_max_threads() 1
+#endif
+
 using namespace psi;
 
 namespace psi{ namespace jellium_scf {
@@ -102,12 +111,10 @@ void JelliumIntegrals::compute() {
   x   = (double *)malloc(n*sizeof(double));
   w   = (double *)malloc(n*sizeof(double));
   
-  mu  = (int*)malloc(3*sizeof(int));
-  nu  = (int*)malloc(3*sizeof(int));
   sig  = (int*)malloc(3*sizeof(int));
   lam  = (int*)malloc(3*sizeof(int));
 
-  nmax=10;
+  nmax=6;
 
   std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
   MO  = MAT_INT(3*nmax*nmax*nmax,3);
@@ -183,8 +190,13 @@ void JelliumIntegrals::compute() {
 
   Ke = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
   NucAttrac = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
-
+  int complete = 0;
+  long counter = 0;
+  printf("hello world %d\n", omp_get_max_threads());
+  long iterations = 1.3333*pow(nmax,6)+10*pow(nmax,5)+33*pow(nmax,4)+60.833*pow(nmax,3)+65.667*pow(nmax,2)+39.168*nmax+9.9869;
+  iterations/=100;
   for (int px = 0; px < 2*nmax+2; px++) {
+  #pragma omp parallel for
       for (int qx = px; qx < 2*nmax+2; qx++) {
 
           int pq_x = px*(2*nmax+2) + qx;
@@ -201,7 +213,11 @@ void JelliumIntegrals::compute() {
                           int pq_z = pz*(2*nmax+2) + qz;
                           if ( pq_y > pq_z ) continue;
 
-
+                          if(int(counter/(iterations))>complete){
+                             printf("\r%i%% complete",complete);
+                             fflush(stdout);
+                             complete++;
+                          }
                           //if ( P > Q ) continue;
 
                           double dum = pq_int_new(n, px, py, pz, qx, qy, qz);
@@ -411,12 +427,14 @@ void JelliumIntegrals::compute() {
                           Q = PQmap[py][pz][px];
                           PQ_p[P][Q] = dum;
 
+                          counter++;
                       }
                   }
               }
           }
       }
   }
+printf("%ld\n",counter);
                           //int P = PQmap[ 0 ][ 0 ][ 0 ];
                           //int Q = PQmap[ 0 ][ 0 ][ 0 ];
                           //double dum = PQ->pointer()[P][Q];
@@ -432,15 +450,14 @@ void JelliumIntegrals::compute() {
   // will not be computed, but this is still not exploiting symmetry fully
   outfile->Printf("    build potential integrals.....");fflush(stdout);
   int start = clock();
+  #pragma omp parallel for
   for (int i=0; i<orbitalMax; i++) {
-      mu[0] = MO[i][0];
-      mu[1] = MO[i][1];
-      mu[2] = MO[i][2];
+  int* mu;
+  int* nu;
+      mu = MO[i];
 
-      for (int j=0; j<orbitalMax; j++) {
-          nu[0] = MO[j][0];
-          nu[1] = MO[j][1];
-          nu[2] = MO[j][2];
+      for (int j=0; j<=i; j++) {
+          nu = MO[j];
 
           // Lower triangle of 1-electron integrals will be computed, fully exploiting symmetry (I think!)
           // Kinetic Energy Integrals - already computed and stored in ORBE vector    
@@ -456,7 +473,7 @@ void JelliumIntegrals::compute() {
           //double dum = Vab_Int(n, x, w, mu, nu);
           double dum = Vab_Int_new(n, x, w, mu, nu);
           NucAttrac->pointer()[i][j] = dum;
-          //NucAttrac->pointer()[j][i] = dum;
+          NucAttrac->pointer()[j][i] = dum;
 
           // Print Nuclear-attraction integral to file
 
@@ -506,8 +523,8 @@ void JelliumIntegrals::compute() {
   
   free(x);
   free(w);
-  free(mu);
-  free(nu);
+  //free(mu);
+  //free(nu);
 
 }
 
@@ -1442,9 +1459,9 @@ double JelliumIntegrals::pq_int(int dim, double *xa, double *w, int px, int py, 
 }
 
 double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz) {
-    if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0){
-        return 0.;
-    }
+    //if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0){
+    //    return 0.;
+    //}
     double * s_p = sqrt_tensor->pointer();
     double * g_p = g_tensor->pointer();
     double sum = 0.;
