@@ -58,6 +58,8 @@ class JelliumIntegrals{
     double selfval = 0.0;
     double ERI_int(int a, int b, int c, int d);
 
+    int get_nmax();
+
   private:
     void compute();
     std::shared_ptr<Vector> sqrt_tensor;

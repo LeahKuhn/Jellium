@@ -62,6 +62,11 @@ namespace psi{ namespace jellium_scf {
 JelliumIntegrals::JelliumIntegrals(Options & options):
         options_(options)
 {
+
+    outfile->Printf("\n");
+    outfile->Printf("    ==> Jellium Integral Construction <==\n");
+    outfile->Printf("\n");
+
     orbitalMax = options.get_int("N_BASIS_FUNCTIONS");
     length = options.get_double("LENGTH");
     common_init();
@@ -75,15 +80,6 @@ JelliumIntegrals::~JelliumIntegrals()
 
 void JelliumIntegrals::common_init() {
 
-    outfile->Printf("\n");
-    outfile->Printf("\n");
-    outfile->Printf( "        ****************************************************\n");
-    outfile->Printf( "        *                                                  *\n");
-    outfile->Printf( "        *    Jellium Hartree-Fock                          *\n");
-    outfile->Printf( "        *                                                  *\n");
-    outfile->Printf( "        ****************************************************\n");
-    outfile->Printf("\n");
-    outfile->Printf("\n");
     x1 = (int *)malloc(3*sizeof(int));
     x2 = (int *)malloc(3*sizeof(int));
     y1 = (int *)malloc(3*sizeof(int));
@@ -128,6 +124,7 @@ void JelliumIntegrals::compute() {
   // We want our integration range to go from 0 to 1, so a = 0, b = 1
   // This is also one of John Burkhardt's library functions
   tmp.rescale( a, b, n, x, w);
+
   // build g tensor g[npq] * w[n]
   outfile->Printf("\n");
   outfile->Printf("    build g tensor................"); fflush(stdout);
@@ -1264,7 +1261,7 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
           l = (i+1)*(i+1) + (j+1)*(j+1) + (k+1)*(k+1);
           E[idx] = l;
           // index is and energy is ...
-          outfile->Printf("  Index is %i and Energy[%i,%i,%i] is %i\n",idx,i+1,j+1,k+1,l);
+          //outfile->Printf("  Index is %i and Energy[%i,%i,%i] is %i\n",idx,i+1,j+1,k+1,l);
           // element N[k][0] is nx = i+1
           N[l][0] = i+1;
           // element N[k][1] is ny = j+1
@@ -1288,9 +1285,9 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
     }
   
     // print all energy values
-    for (int i=0; i<(norbs*norbs*norbs); i++) {
-      outfile->Printf(" E[%i] is %f \n",i,E[i]);
-    }
+    //for (int i=0; i<(norbs*norbs*norbs); i++) {
+    //  outfile->Printf(" E[%i] is %f \n",i,E[i]);
+    //}
     c=0;
     do {
       Ecur = E[c];
@@ -1320,7 +1317,7 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
   
     // reset nmax to be actual maximum necessary to consider, given orbitalMax
   
-    outfile->Printf(" exit successful \n");
+    //outfile->Printf(" exit successful \n");
   
     //  for (i=0; i<(norbs*norbs*norbs); i++) {
     //    outfile->Printf("  Psi( %i , %i, %i ) %i\n",MO[i][0],MO[i][1],MO[i][2],E[i]);
@@ -1369,6 +1366,10 @@ int ** JelliumIntegrals::MAT_INT(int dim1, int dim2){
       }
   }
   return M;
+}
+
+int JelliumIntegrals::get_nmax(){
+    return nmax;
 }
 
 }} // end of namespaces

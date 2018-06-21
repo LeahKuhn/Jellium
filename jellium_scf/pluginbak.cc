@@ -76,6 +76,15 @@ int read_options(std::string name, Options& options)
 extern "C" PSI_API
 SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 {
+
+    outfile->Printf("\n");
+    outfile->Printf( "    ****************************************************\n");
+    outfile->Printf( "    *                                                  *\n");
+    outfile->Printf( "    *    Jellium Hartree-Fock                          *\n");
+    outfile->Printf( "    *                                                  *\n");
+    outfile->Printf( "    ****************************************************\n");
+    outfile->Printf("\n");
+
     // number of basis functions
     int nso = options.get_int("N_BASIS_FUNCTIONS"); 
 
@@ -84,7 +93,6 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     if ( nelectron % 2 != 0 ) {
         throw PsiException("jellium only works with even number of electrons (for now).",__FILE__,__LINE__);
     }
-   
 
     // factor for box size ... coded to give <rho> = 1
     double Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
@@ -99,6 +107,15 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     //one-electron potential energy integrals
     std::shared_ptr<Matrix> V = Jell->NucAttrac;
     V->scale(1.0/Lfac);
+
+
+    // print some information about this computation
+    outfile->Printf("    ==> Hartree-Fock <==\n");
+    outfile->Printf("\n");
+    outfile->Printf("    Number of electrons:              %5i\n",nelectron);
+    outfile->Printf("    Number of basis functions:        %5i\n",nso);
+    outfile->Printf("    Maximum particle-in-a-box state:  %5i\n",Jell->get_nmax());
+    outfile->Printf("\n");
 
     //build the core hamiltonian
     std::shared_ptr<Matrix> h = (std::shared_ptr<Matrix>)(new Matrix(T));
