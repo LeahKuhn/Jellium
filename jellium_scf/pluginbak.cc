@@ -159,32 +159,34 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     double deld = 0.0;
     
     do {
-    
+
+        K->zero();
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu < nso; ++nu){
                 double myJ = 0.0;
-                double myK = 0.0;
                 for(int lambda = 0; lambda < nso; ++lambda){
+                    double myK = 0.0;
                     for(int sigma = 0; sigma < nso; ++sigma){
-                        double d = d_p[lambda][sigma];
-                        myJ += d * Jell->ERI_int(mu,nu,lambda,sigma);
-                        myK += d * Jell->ERI_int(mu,sigma,lambda,nu);
+                        double dum = Jell->ERI_int(mu,nu,lambda,sigma);
+                        myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
+                        myK += d_p[ sigma][   nu] * dum;//Jell->ERI_int(mu,sigma,lambda,nu);
                     }
+                    k_p[mu][lambda] += myK;
                 }
-                j_p[mu][nu] = myJ / Lfac;
-                k_p[mu][nu] = myK / Lfac;
+                j_p[mu][nu] = myJ;
+                //k_p[mu][nu] = myK;
            }
         }
-        std::shared_ptr<Matrix> Fa (new Matrix(J));
-        Fa->scale(2.0);
-        Fa->subtract(K);
-        Fa->add(h);
+        F->copy(J);
+        F->scale(2.0);
+        F->subtract(K);
+        F->scale(1.0/Lfac);
+        F->add(h);
 
-        F->copy(Fa);
         double new_energy = 0.0;
         new_energy += (nelectron*nelectron/2.0)*Jell->selfval/Lfac;
         new_energy += D->vector_dot(h);
-        new_energy += D->vector_dot(Fa);
+        new_energy += D->vector_dot(F);
 
         std::shared_ptr<Matrix> Fprime = (std::shared_ptr<Matrix>)(new Matrix(F));
         std::shared_ptr<Matrix> Fevec (new Matrix(nso,nso));
@@ -232,7 +234,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("      SCF iterations converged!\n");
     outfile->Printf("\n");
 
-    double fock_energy = D->vector_dot(K);
+    double fock_energy = D->vector_dot(K) / Lfac;
     //V->print();
     outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
     outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
