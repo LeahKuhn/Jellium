@@ -47,7 +47,6 @@
 
 #include "JelliumIntegrals.h"
 #include "Legendre.h"
-#include<omp.h>
 
 #ifdef _OPENMP
     #include<omp.h>
@@ -529,27 +528,36 @@ printf("%ld\n",counter);
 }
 
 double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
-
-   //return ERI_new(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
-   return ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+    return ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
 }
 
 double JelliumIntegrals::g_pq(int p, int q, double x) {
-  int d = (abs(p-q));
-  double pi = M_PI;
-  //if(q < 0 || p < 0){
-  //   return 0;
-  //}
-  if (p == q && p == 0) {
-    return 1.0 - x;
-  }
-  else if ( p == q && p > 0 ) {
-    return (1.0 - x)*cos(p*pi*x)/2.0 - sin(p*pi*x)/(2*p*pi);
-  }
-  else if ( (d % 2)==0 && d!=0) {
-    return (q*sin(q*pi*x) - p*sin(p*pi*x))/((p*p-q*q)*pi);
-  }
-  else 
+    int d = abs(p-q);
+    double pi = M_PI;
+    ////if(q < 0 || p < 0){
+    ////   return 0;
+    ////}
+    //if (p == q && p == 0) {
+    //  return 1.0 - x;
+    //}
+    //else if ( p == q && p > 0 ) {
+    //  return (1.0 - x)*cos(p*pi*x)/2.0 - sin(p*pi*x)/(2*p*pi);
+    //}
+    //else if ( (d % 2)==0 && d!=0) {
+    //  return (q*sin(q*pi*x) - p*sin(p*pi*x))/((p*p-q*q)*pi);
+    //}
+    //else 
+    //  return 0.0;
+
+    if ( p == q ) {
+        if ( p == 0 ) {
+            return 1.0 - x;
+        }else {
+            return (1.0 - x)*cos(p*pi*x)/2.0 - sin(p*pi*x)/(2*p*pi);
+        }
+    }else if ( (d % 2)==0 && d != 0 ) {
+        return (q*sin(q*pi*x) - p*sin(p*pi*x))/((p*p-q*q)*pi);
+    }   
     return 0.0;
 }
 
