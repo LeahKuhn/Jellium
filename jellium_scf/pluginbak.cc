@@ -110,7 +110,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
 
     // print some information about this computation
+    outfile->Printf("\n");
     outfile->Printf("    ==> Hartree-Fock <==\n");
+    outfile->Printf("\n");
     outfile->Printf("\n");
     outfile->Printf("    Number of electrons:              %5i\n",nelectron);
     outfile->Printf("    Number of basis functions:        %5i\n",nso);
