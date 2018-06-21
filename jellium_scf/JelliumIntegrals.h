@@ -86,7 +86,7 @@ class JelliumIntegrals{
     double ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap);
     double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz);
     
-    void OrderPsis3D(int norbs, double *E, int **MO);
+    void OrderPsis3D(int &norbs, double *E, int **MO);
     int **MAT_INT(int dim1, int dim2);
     int *VEC_INT(int dim);
     int * x1;

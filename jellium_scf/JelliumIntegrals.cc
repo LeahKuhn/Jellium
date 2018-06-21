@@ -113,7 +113,7 @@ void JelliumIntegrals::compute() {
   sig  = (int*)malloc(3*sizeof(int));
   lam  = (int*)malloc(3*sizeof(int));
 
-  nmax=6;
+  nmax=20;
 
   std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
   MO  = MAT_INT(3*nmax*nmax*nmax,3);
@@ -1244,84 +1244,98 @@ double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int
 / Function to Determine Energy Calculation
 / Take function and loop through n to keep all atomic orbital energy levels.
 */
-void JelliumIntegrals::OrderPsis3D(int norbs, double *E, int **MO) {
+void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
 
-  int c, d, i, j, k, l, idx;
-  double swap;
-  int **N;
-  int cond, Ecur;
-  N = MAT_INT(2*(norbs+1)*(norbs+1)*(norbs+1),3);
-
-  // Going to start with i and j=0 because that's the beginning
-  // of the array... nx=i+1, ny=j+1
-
-  for ( i=0; i<norbs; i++) {
-    for ( j=0; j<norbs; j++) {
-      for ( k=0; k<norbs; k++) {
-
-        idx = i*norbs*norbs+j*norbs+k;
-        // l is related to nx^2 + ny^2 + nz^2, aka, (i+1)^2 + (j+1)^2 (k+1)^2
-        l = (i+1)*(i+1) + (j+1)*(j+1) + (k+1)*(k+1);
-        E[idx] = l;
-        // index is and energy is ...
-        outfile->Printf("  Index is %i and Energy[%i,%i,%i] is %i\n",idx,i+1,j+1,k+1,l);
-        // element N[k][0] is nx = i+1
-        N[l][0] = i+1;
-        // element N[k][1] is ny = j+1
-        N[l][1] = j+1;
-        // element N[k][2] is nz = k+1
-        N[l][2] = k+1;
-
+    int c, d, i, j, k, l, idx;
+    double swap;
+    int **N;
+    int cond, Ecur;
+    N = MAT_INT(2*(norbs+1)*(norbs+1)*(norbs+1),3);
+  
+    // Going to start with i and j=0 because that's the beginning
+    // of the array... nx=i+1, ny=j+1
+  
+    for ( i=0; i<norbs; i++) {
+      for ( j=0; j<norbs; j++) {
+        for ( k=0; k<norbs; k++) {
+  
+          idx = i*norbs*norbs+j*norbs+k;
+          // l is related to nx^2 + ny^2 + nz^2, aka, (i+1)^2 + (j+1)^2 (k+1)^2
+          l = (i+1)*(i+1) + (j+1)*(j+1) + (k+1)*(k+1);
+          E[idx] = l;
+          // index is and energy is ...
+          outfile->Printf("  Index is %i and Energy[%i,%i,%i] is %i\n",idx,i+1,j+1,k+1,l);
+          // element N[k][0] is nx = i+1
+          N[l][0] = i+1;
+          // element N[k][1] is ny = j+1
+          N[l][1] = j+1;
+          // element N[k][2] is nz = k+1
+          N[l][2] = k+1;
+  
+        }
       }
     }
-  }
-
-  for ( c = 0 ; c < ( norbs*norbs*norbs-1 ); c++){
-    for (d = 0 ; d < norbs*norbs*norbs - c - 1; d++){
-      if (E[d] > E[d+1]) /* For decreasing order use < */
-      {
-        swap       = E[d];
-        E[d]   = E[d+1];
-        E[d+1] = swap;
+  
+    for ( c = 0 ; c < ( norbs*norbs*norbs-1 ); c++){
+      for (d = 0 ; d < norbs*norbs*norbs - c - 1; d++){
+        if (E[d] > E[d+1]) /* For decreasing order use < */
+        {
+          swap       = E[d];
+          E[d]   = E[d+1];
+          E[d+1] = swap;
+        }
       }
     }
-  }
-
-// print all energy values
-for (int i=0; i<(norbs*norbs*norbs); i++) {
-  outfile->Printf(" E[%i] is %f \n",i,E[i]);
-}
-  c=0;
-  do {
-    Ecur = E[c];
-    i=0;
+  
+    // print all energy values
+    for (int i=0; i<(norbs*norbs*norbs); i++) {
+      outfile->Printf(" E[%i] is %f \n",i,E[i]);
+    }
+    c=0;
     do {
-      i++;
-      j=0;
+      Ecur = E[c];
+      i=0;
       do {
-        j++;
-        k=0;
+        i++;
+        j=0;
         do {
-          k++;
-          cond=Ecur-(i*i+j*j+k*k);
-          if (cond==0) {
-            MO[c][0] = i;
-            MO[c][1] = j;
-            MO[c][2] = k;
-            c++;
-          }
-        }while( Ecur==E[c] && k<norbs);
-      }while( Ecur==E[c] && j<norbs);
-    }while (Ecur==E[c] && i<norbs);
-  }while(c<norbs*norbs*norbs);
-  for ( c = 0 ; c < ( norbs*norbs*norbs ); c++){
-     E[c] = E[c];///(length*length);
-  }
-  outfile->Printf(" exit successful \n");
+          j++;
+          k=0;
+          do {
+            k++;
+            cond=Ecur-(i*i+j*j+k*k);
+            if (cond==0) {
+              MO[c][0] = i;
+              MO[c][1] = j;
+              MO[c][2] = k;
+              c++;
+            }
+          }while( Ecur==E[c] && k<norbs);
+        }while( Ecur==E[c] && j<norbs);
+      }while (Ecur==E[c] && i<norbs);
+    }while(c<norbs*norbs*norbs);
+    for ( c = 0 ; c < ( norbs*norbs*norbs ); c++){
+       E[c] = E[c];///(length*length);
+    }
+  
+    // reset nmax to be actual maximum necessary to consider, given orbitalMax
+  
+    outfile->Printf(" exit successful \n");
+  
+    //  for (i=0; i<(norbs*norbs*norbs); i++) {
+    //    outfile->Printf("  Psi( %i , %i, %i ) %i\n",MO[i][0],MO[i][1],MO[i][2],E[i]);
+    //  }
 
-//  for (i=0; i<(norbs*norbs*norbs); i++) {
-//    outfile->Printf("  Psi( %i , %i, %i ) %i\n",MO[i][0],MO[i][1],MO[i][2],E[i]);
-//  }
+    int new_nmax = 0;
+    for (int i = 0; i < orbitalMax; i++) {
+        if ( MO[i][0] > new_nmax ) new_nmax = MO[i][0];
+        if ( MO[i][1] > new_nmax ) new_nmax = MO[i][1];
+        if ( MO[i][2] > new_nmax ) new_nmax = MO[i][2];
+    }
+    //printf("%5i\n",nmax);
+    //printf("%5i\n",new_nmax);
+    //exit(0);
+    norbs = new_nmax;
 
 }
 
