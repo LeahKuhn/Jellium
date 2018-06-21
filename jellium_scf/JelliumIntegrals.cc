@@ -159,20 +159,20 @@ void JelliumIntegrals::compute() {
   int start_pq = clock();
   // now, compute (P|Q)
   outfile->Printf("    build (P|Q)..................."); fflush(stdout);
-  PQmap = (int ***)malloc((2*nmax+2)*sizeof(int**));
-  for (int i = 0; i < 2*nmax+2; i++) {
-      PQmap[i] = (int **)malloc((2*nmax+2)*sizeof(int*));
-      for (int j = 0; j < 2*nmax+2; j++) {
-          PQmap[i][j] = (int *)malloc((2*nmax+2)*sizeof(int));
-          for (int k = 0; k < 2*nmax+2; k++) {
+  PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
+  for (int i = 0; i < 2*nmax+1; i++) {
+      PQmap[i] = (int **)malloc((2*nmax+1)*sizeof(int*));
+      for (int j = 0; j < 2*nmax+1; j++) {
+          PQmap[i][j] = (int *)malloc((2*nmax+1)*sizeof(int));
+          for (int k = 0; k < 2*nmax+1; k++) {
               PQmap[i][j][k] = 999;
           }
       }
   }
   int Pdim = 0;
-  for (int px = 0; px < 2*nmax+2; px++) {
-      for (int py = 0; py < 2*nmax+2; py++) {
-          for (int pz = 0; pz < 2*nmax+2; pz++) {
+  for (int px = 0; px < 2*nmax+1; px++) {
+      for (int py = 0; py < 2*nmax+1; py++) {
+          for (int pz = 0; pz < 2*nmax+1; pz++) {
               PQmap[px][py][pz] = Pdim;
               Pdim++;
           }
@@ -183,39 +183,39 @@ void JelliumIntegrals::compute() {
   //exit(1);
   PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
   double ** PQ_p = PQ->pointer();
-
+  
   Ke = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
   NucAttrac = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
-  int complete = 0;
-  long counter = 0;
+  //int complete = 0;
+  //long counter = 0;
   printf("hello world %d\n", omp_get_max_threads());
-  long iterations = 1.3333*pow(nmax,6)+10*pow(nmax,5)+33*pow(nmax,4)+60.833*pow(nmax,3)+65.667*pow(nmax,2)+39.168*nmax+9.9869;
-  iterations/=100;
-  for (int px = 0; px < 2*nmax+2; px++) {
+  //long iterations = 1.3333*pow(nmax,6)+10*pow(nmax,5)+33*pow(nmax,4)+60.833*pow(nmax,3)+65.667*pow(nmax,2)+39.168*nmax+9.9869;
+  //iterations/=100;
+  for (int px = 0; px < 2*nmax+1; px++) {
   #pragma omp parallel for
-      for (int qx = px; qx < 2*nmax+2; qx++) {
+      for (int qx = px; qx < 2*nmax+1; qx++) {
 
-          int pq_x = px*(2*nmax+2) + qx;
+          int pq_x = px*(2*nmax+1) + qx;
 
-          for (int py = 0; py < 2*nmax+2; py++) {
-              for (int qy = py; qy < 2*nmax+2; qy++) {
+          for (int py = 0; py < 2*nmax+1; py++) {
+              for (int qy = py; qy < 2*nmax+1; qy++) {
 
-                  int pq_y = py*(2*nmax+2) + qy;
+                  int pq_y = py*(2*nmax+1) + qy;
                   if ( pq_x > pq_y ) continue;
 
-                  for (int pz = 0; pz < 2*nmax+2; pz++) {
-                      for (int qz = pz; qz < 2*nmax+2; qz++) {
+                  for (int pz = 0; pz < 2*nmax+1; pz++) {
+                      for (int qz = pz; qz < 2*nmax+1; qz++) {
 
-                          int pq_z = pz*(2*nmax+2) + qz;
+                          int pq_z = pz*(2*nmax+1) + qz;
                           if ( pq_y > pq_z ) continue;
 
-                          if(int(counter/(iterations))>complete){
-                             printf("\r%i%% complete",complete);
-                             fflush(stdout);
-                             complete++;
-                          }
+                         // if(int(counter/(iterations))>complete){
+                         //    printf("\r%i%% complete",complete);
+                         //    fflush(stdout);
+                         //    complete++;
+                         // }
                           //if ( P > Q ) continue;
-
+                          if((px+qx)%2==0 && (py+qy)%2==0 && (pz+qz)%2==0){
                           double dum = pq_int_new(n, px, py, pz, qx, qy, qz);
 //                         printf("dum %f",dum); 
                           int P,Q;
@@ -423,14 +423,15 @@ void JelliumIntegrals::compute() {
                           Q = PQmap[py][pz][px];
                           PQ_p[P][Q] = dum;
 
-                          counter++;
+                          //counter++;
+                          }
                       }
                   }
               }
           }
       }
   }
-printf("%ld\n",counter);
+//printf("%ld\n",counter);
                           //int P = PQmap[ 0 ][ 0 ][ 0 ];
                           //int Q = PQmap[ 0 ][ 0 ][ 0 ];
                           //double dum = PQ->pointer()[P][Q];
@@ -782,6 +783,9 @@ double JelliumIntegrals::ERI(int dim, double *xa, double *w, int *a, int *b, int
 
 double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
 
+  //if(a[0] == a[1]){
+  //  return 0;
+  //}
   //x1[0] = ax-bx, x1[1] = ax+bx
   x1[0] = abs(a[0] - b[0]);
   y1[0] = abs(a[1] - b[1]);
@@ -799,7 +803,11 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   x2[1] = c[0] + d[0];
   y2[1] = c[1] + d[1];
   z2[1] = c[2] + d[2];
-
+  
+  if((x1[0]+x1[1])%2!=0 || (y1[0]+y1[1])%2!=0){
+    printf("0\n");
+    return 0;
+  }
   // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
 
   double eri_val = 0.0;
@@ -1060,6 +1068,8 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
   eri_val += PQ[P][Q];
 
+  //if(eri_val == 0)
+     //printf("x1: %d x2: %d y1: %d y2: %d c1: %d c2: %d d1: %d d2: %d\n",a[0],a[1],b[0],b[1],c[0],c[1],d[0],d[1]);
   return eri_val;
 
 }
