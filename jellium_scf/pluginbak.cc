@@ -177,25 +177,41 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
     double dele = 0.0;
     double deld = 0.0;
-    
     do {
 
         K->zero();
-        //#pragma omp parallel for
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu < nso; ++nu){
-                double myJ = 0.0;
-                for(int lambda = 0; lambda < nso; ++lambda){
+                for(int lambda = 0; lambda <= mu; ++lambda){
                     double myK = 0.0;
                     for(int sigma = 0; sigma < nso; ++sigma){
+                    //if(sigma<=lambda) continue;
                         double dum = Jell->ERI_int(mu,nu,lambda,sigma);
-                        myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
                         myK += d_p[ sigma][   nu] * dum;//Jell->ERI_int(mu,sigma,lambda,nu);
                     }
                     k_p[mu][lambda] += myK;
+                    if(mu!=lambda)
+                    k_p[lambda][mu] += myK;
+                }
+           }
+        }
+        for(int mu = 0; mu < nso; ++mu){
+            for(int nu = 0; nu <= mu; ++nu){
+                double myJ = 0.0;
+                for(int lambda = 0; lambda < nso; ++lambda){
+                    for(int sigma = 0; sigma <= lambda; ++sigma){
+                    //if(sigma<=lambda) continue;
+                        double dum = Jell->ERI_int(mu,nu,lambda,sigma);
+                        if(lambda == sigma){
+                           myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
+                        } else {
+                        myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
+                        myJ += d_p[sigma][lambda] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
+                        }
+                    }
                 }
                 j_p[mu][nu] = myJ;
-                //k_p[mu][nu] = myK;
+                j_p[nu][mu] = myJ;
            }
         }
         F->copy(J);
@@ -247,7 +263,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         if( iter > maxiter ) break;
 
     }while(dele > e_convergence || deld > d_convergence);
-
+    
     if ( iter > maxiter ) {
         throw PsiException("jellium scf did not converge.",__FILE__,__LINE__);
     }

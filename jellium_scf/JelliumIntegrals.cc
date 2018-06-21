@@ -782,7 +782,10 @@ double JelliumIntegrals::ERI(int dim, double *xa, double *w, int *a, int *b, int
 }
 
 double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
-
+  //c[0] =0;
+  //c[1] = 0;
+  //d[0] = 0;
+  //d[1] = 0;
   //if(a[0] == a[1]){
   //  return 0;
   //}
@@ -803,11 +806,15 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   x2[1] = c[0] + d[0];
   y2[1] = c[1] + d[1];
   z2[1] = c[2] + d[2];
-  
-  if((x1[0]+x1[1])%2!=0 || (y1[0]+y1[1])%2!=0){
-    printf("0\n");
-    return 0;
-  }
+ 
+  //if(x1[0] == x2[0] && x1[1] == x2[1] && y1[0] == y1[0] && y1[1] == y2[1] && z1[0] == z2[0] && z1[1] == z2[1]){
+  //  printf("hello\n");
+  //  return 0; 
+  //}
+  //if(x1[0]%2!=0 || (y1[0])%2!=0){
+  //  printf("0\n");
+  //  return 0;
+  //}
   // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
 
   double eri_val = 0.0;
@@ -1068,8 +1075,9 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
   eri_val += PQ[P][Q];
 
-  //if(eri_val == 0)
-     //printf("x1: %d x2: %d y1: %d y2: %d c1: %d c2: %d d1: %d d2: %d\n",a[0],a[1],b[0],b[1],c[0],c[1],d[0],d[1]);
+//  if(eri_val == 0)
+     //printf("x1[0]: %d x1[1]: %d y1[0]: %d y1[1]: %d z1[0]: %d z1[1]: %d x2[0] %d x2[1] %d y2[0] %d y2[1] %d z2[0] %d z2[1] %d\n",x1[0],x1[1],y1[0],y1[1],z1[0],z1[1],x2[0],x2[1],y2[0],y2[1],z2[0],z2[1]);
+     //printf("x1[0]: %d x1[1]: %d x2[0]: %d x2[1]: %d\n",x1[0],x1[1],x2[0],x2[1]);
   return eri_val;
 
 }
