@@ -156,7 +156,7 @@ void JelliumIntegrals::compute() {
   outfile->Printf("done.\n");
 
 
-  int start_pq = clock();
+  unsigned long start_pq = clock();
   // now, compute (P|Q)
   outfile->Printf("    build (P|Q)..................."); fflush(stdout);
   PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
@@ -186,11 +186,11 @@ void JelliumIntegrals::compute() {
   
   Ke = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
   NucAttrac = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
-  //int complete = 0;
-  //long counter = 0;
+  int complete = 0;
+  long counter = 0;
   printf("hello world %d\n", omp_get_max_threads());
-  //long iterations = 1.3333*pow(nmax,6)+10*pow(nmax,5)+33*pow(nmax,4)+60.833*pow(nmax,3)+65.667*pow(nmax,2)+39.168*nmax+9.9869;
-  //iterations/=100;
+  long iterations = 1.3333*pow(nmax,6)+10*pow(nmax,5)+33*pow(nmax,4)+60.833*pow(nmax,3)+65.667*pow(nmax,2)+39.168*nmax+9.9869;
+  iterations/=2000;
   for (int px = 0; px < 2*nmax+1; px++) {
   #pragma omp parallel for
       for (int qx = px; qx < 2*nmax+1; qx++) {
@@ -209,11 +209,11 @@ void JelliumIntegrals::compute() {
                           int pq_z = pz*(2*nmax+1) + qz;
                           if ( pq_y > pq_z ) continue;
 
-                         // if(int(counter/(iterations))>complete){
-                         //    printf("\r%i%% complete",complete);
-                         //    fflush(stdout);
-                         //    complete++;
-                         // }
+                          if(int(counter/(iterations))>complete){
+                             printf("\r%i%% complete",complete);
+                             fflush(stdout);
+                             complete++;
+                          }
                           //if ( P > Q ) continue;
                           if((px+qx)%2==0 && (py+qy)%2==0 && (pz+qz)%2==0){
                           double dum = pq_int_new(n, px, py, pz, qx, qy, qz);
@@ -423,7 +423,7 @@ void JelliumIntegrals::compute() {
                           Q = PQmap[py][pz][px];
                           PQ_p[P][Q] = dum;
 
-                          //counter++;
+                          counter++;
                           }
                       }
                   }
@@ -431,11 +431,11 @@ void JelliumIntegrals::compute() {
           }
       }
   }
-//printf("%ld\n",counter);
+printf("%ld\n",counter);
                           //int P = PQmap[ 0 ][ 0 ][ 0 ];
                           //int Q = PQmap[ 0 ][ 0 ][ 0 ];
                           //double dum = PQ->pointer()[P][Q];
-  int end_pq = clock();
+  unsigned long end_pq = clock();
   outfile->Printf("done.\n");fflush(stdout);
 
   outfile->Printf("\n");
@@ -446,7 +446,7 @@ void JelliumIntegrals::compute() {
   // Four nested loops to compute lower triange of electron repulsion integrals - roughly have of the non-unique integrals
   // will not be computed, but this is still not exploiting symmetry fully
   outfile->Printf("    build potential integrals.....");fflush(stdout);
-  int start = clock();
+  unsigned long start = clock();
   #pragma omp parallel for
   for (int i=0; i<orbitalMax; i++) {
   int* mu;
@@ -471,7 +471,6 @@ void JelliumIntegrals::compute() {
           double dum = Vab_Int_new(n, x, w, mu, nu);
           NucAttrac->pointer()[i][j] = dum;
           NucAttrac->pointer()[j][i] = dum;
-
           // Print Nuclear-attraction integral to file
 
           // loop over indices for electron 2       
@@ -507,7 +506,7 @@ void JelliumIntegrals::compute() {
   //        //NucAttrac->pointer()[i][j] = NucAttrac->pointer()[j][i] = 0.5 * ( dum1 + dum2 );
   //    }
   //}
-  int end = clock();
+  unsigned long end = clock();
   outfile->Printf("done.\n");fflush(stdout);
   outfile->Printf("\n");
   outfile->Printf("    time for potential integral construction:   %6.1f s\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
@@ -638,7 +637,9 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
     qx = a[0] + b[0];
     qy = a[1] + b[1];
     qz = a[2] + b[2];
-
+    if(px%2==1 || py %2==1 || pz%2==1 || qx%2==1 || qy%2==1 || qz%2==1){
+       return 0.0;
+    }
     Vab = 0.0;
  
     //make sure to check that these integrals are correct
@@ -667,6 +668,17 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
     // - Cos[qx x1] Cos[qy y1] Cos[qz z1]
     Vab  -= pq_int_new(dim,  0,  0,  0, qx, qy, qz);
 
+          //if(Vab == 0){
+             //printf("px[0]: %d, py[0]: %d, pz[0]: %d, qx[0]: %d, qy[0]: %d, qz[0]: %d, val %f\n",px,py,pz,qx,qy,qz,Vab);
+            //if(px != py && py != pz && px != pz && px%2==0 && pz%2==0 && py%2==0){ printf("three different even\t : Vab %f",Vab);
+            // if((mu[0] == mu[1] && mu[1] != mu[2] && mu[0]%2==0 && mu[2]%2==0) || (mu[0] != mu[1] && mu[1] == mu[2] && mu[0]%2==0 && mu[2]%2==0) || (mu[0] == mu[2] && mu[1] != mu[2] && mu[1]%2==0 && mu[2]%2==0)) printf("A1g + Eg\t");
+            // if(mu[0] != mu[1] && mu[1] != mu[2] && mu[0]%2==0 && mu[1]%2==0 && mu[2]%2==0) printf("A1g + A2g + 2Eg\t");
+            // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("T2g\t");
+            // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("A1g\t");
+            // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("A1g\t");
+            // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("A1g\t");
+            // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("A1g\t");
+          //}
     return -Vab;
 
 }
@@ -807,9 +819,12 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   y2[1] = c[1] + d[1];
   z2[1] = c[2] + d[2];
  
-  //if(x1[0] == x2[0] && x1[1] == x2[1] && y1[0] == y1[0] && y1[1] == y2[1] && z1[0] == z2[0] && z1[1] == z2[1]){
-  //  printf("hello\n");
-  //  return 0; 
+  //bool guess = false;
+  ////if((z1[0]+z1[1])!=(z2[0]+z2[1]) && (x1[0]+x1[1])!=(x2[0]+x2[1]) && (y1[0]+y1[1])!=(y2[0]+y2[1])){
+  //if(x1[0]!=x2[0] && y1[0]!=y2[0] && z1[0]!=z2[0]){
+  //  if(x1[0]%2==1 || y1[0]%2==1 || y1[0]%2==1){
+  //  //return 0.0;
+  //  guess = true; }
   //}
   //if(x1[0]%2!=0 || (y1[0])%2!=0){
   //  printf("0\n");
@@ -1075,8 +1090,8 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
   eri_val += PQ[P][Q];
 
-//  if(eri_val == 0)
-     //printf("x1[0]: %d x1[1]: %d y1[0]: %d y1[1]: %d z1[0]: %d z1[1]: %d x2[0] %d x2[1] %d y2[0] %d y2[1] %d z2[0] %d z2[1] %d\n",x1[0],x1[1],y1[0],y1[1],z1[0],z1[1],x2[0],x2[1],y2[0],y2[1],z2[0],z2[1]);
+  //if(eri_val != 0 && guess==true)
+    // printf("x1[0]: %d x1[1]: %d y1[0]: %d y1[1]: %d z1[0]: %d z1[1]: %d x2[0] %d x2[1] %d y2[0] %d y2[1] %d z2[0] %d z2[1] %d\n",x1[0],x1[1],y1[0],y1[1],z1[0],z1[1],x2[0],x2[1],y2[0],y2[1],z2[0],z2[1]);
      //printf("x1[0]: %d x1[1]: %d x2[0]: %d x2[1]: %d\n",x1[0],x1[1],x2[0],x2[1]);
   return eri_val;
 
