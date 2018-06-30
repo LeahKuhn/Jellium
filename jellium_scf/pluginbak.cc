@@ -44,7 +44,8 @@
 #include <math.h>
 #include "psi4/pragma.h"
 #include"JelliumIntegrals.h"
-
+#include "diis_c.cc"
+#include "diis_c.h"
 #ifdef _OPENMP
     #include<omp.h>
 #else
@@ -122,7 +123,13 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     //build the core hamiltonian
     std::shared_ptr<Matrix> h = (std::shared_ptr<Matrix>)(new Matrix(T));
     std::shared_ptr<Matrix> Ca = (std::shared_ptr<Matrix>)(new Matrix(nso,nso));
-    
+    std::shared_ptr<Matrix> Shalf = (std::shared_ptr<Matrix>)(new Matrix(nso,nso));
+    std::shared_ptr<Matrix> S = (std::shared_ptr<Matrix>)(new Matrix(nso,nso));
+    for(int i = 0; i < nso;i++){
+        Shalf->pointer()[i][i] = 1.0;
+        S->pointer()[i][i] = 1.0;
+    }
+    std::shared_ptr<DIIS> diis (new DIIS(nso*nso));
     // build core hamiltonian
     V->scale(nelectron); 
     h->add(V);
@@ -141,7 +148,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     // build density matrix core hamiltonian
     std::shared_ptr<Matrix> D (new Matrix(nso,nso));
     double ** d_p = D->pointer();
-    #pragma omp parallel for 
+#pragma omp parallel for 
     for(int mu = 0; mu < nso; ++mu){
         for(int nu = 0; nu< nso; ++nu){
             double dum = 0.0;
@@ -156,6 +163,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("    initial energy: %20.12lf\n",energy);
     outfile->Printf("\n");
 
+    double gnorm;
     // containers for J and K 
     std::shared_ptr<Matrix> J (new Matrix(nso,nso));
     std::shared_ptr<Matrix> K (new Matrix(nso,nso));
@@ -167,58 +175,62 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     double e_convergence = options.get_double("E_CONVERGENCE");
     double d_convergence = options.get_double("D_CONVERGENCE");
     int    maxiter       = options.get_int("MAXITER");
-
+    maxiter = 200;
     int iter = 0;
     outfile->Printf("    ");
     outfile->Printf("  iter");
     outfile->Printf("              energy");
     outfile->Printf("                |dE|");
     outfile->Printf("                |dD|\n");
-
+    int * tmp = (int*)malloc(5*sizeof(int));
     double dele = 0.0;
     double deld = 0.0;
     do {
 
         K->zero();
+#pragma omp parallel for
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu < nso; ++nu){
                 for(int lambda = 0; lambda <= mu; ++lambda){
                     double myK = 0.0;
                     for(int sigma = 0; sigma < nso; ++sigma){
-                    //if(sigma<=lambda) continue;
+                        //if(sigma<=lambda) continue;
                         double dum = Jell->ERI_int(mu,nu,lambda,sigma);
                         myK += d_p[ sigma][   nu] * dum;//Jell->ERI_int(mu,sigma,lambda,nu);
                     }
                     k_p[mu][lambda] += myK;
                     if(mu!=lambda)
-                    k_p[lambda][mu] += myK;
+                        k_p[lambda][mu] += myK;
                 }
-           }
+            }
         }
+#pragma omp parallel for
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu <= mu; ++nu){
                 double myJ = 0.0;
                 for(int lambda = 0; lambda < nso; ++lambda){
                     for(int sigma = 0; sigma <= lambda; ++sigma){
-                    //if(sigma<=lambda) continue;
+                        //if(sigma<=lambda) continue;
                         double dum = Jell->ERI_int(mu,nu,lambda,sigma);
                         if(lambda == sigma){
-                           myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
+                            myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
                         } else {
-                        myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
-                        myJ += d_p[sigma][lambda] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
+                            myJ += d_p[lambda][sigma] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
+                            myJ += d_p[sigma][lambda] * dum;//Jell->ERI_int(mu,nu,lambda,sigma);
                         }
                     }
                 }
                 j_p[mu][nu] = myJ;
                 j_p[nu][mu] = myJ;
-           }
+            }
         }
         F->copy(J);
         F->scale(2.0);
         F->subtract(K);
         F->scale(1.0/Lfac);
         F->add(h);
+
+
 
         double new_energy = 0.0;
         new_energy += (nelectron*nelectron/2.0)*Jell->selfval/Lfac;
@@ -236,14 +248,46 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         double ** dnew_p = Dnew->pointer();
         double tmp = 0;
         #pragma omp parallel for
-        for(int mu = 0; mu < nso; ++mu){
-            for(int nu = 0; nu < nso; ++nu){
-                for(int i = 0; i < na; ++i){
-                    dnew_p[mu][nu] += Ca->pointer()[mu][i] * Ca->pointer()[nu][i];
+                for(int mu = 0; mu < nso; ++mu){
+                    for(int nu = 0; nu < nso; ++nu){
+                        for(int i = 0; i < na; ++i){
+                            dnew_p[mu][nu] += Ca->pointer()[mu][i] * Ca->pointer()[nu][i];
+                        }
+                    }
                 }
-            }
-        }
 
+        diis->WriteVector(&(Fprime->pointer()[0][0]));
+
+        std::shared_ptr<Matrix> FDSmSDF(new Matrix("FDS-SDF",nso, nso));
+        std::shared_ptr<Matrix> DS(new Matrix("DS",nso, nso));
+        DS->gemm(false,false,1.0,D,S,0.0);
+        FDSmSDF->gemm(false,false,1.0,Fprime,DS,0.0);
+        DS.reset();
+
+        std::shared_ptr<Matrix> SDF(FDSmSDF->transpose());
+        FDSmSDF->subtract(SDF);
+
+        SDF.reset();
+
+        std::shared_ptr<Matrix> ShalfGrad(new Matrix("ST^{-1/2}(FDS - SDF)", nso, nso));
+        ShalfGrad->gemm(true,false,1.0,Shalf,FDSmSDF,0.0);
+        FDSmSDF.reset();
+
+        std::shared_ptr<Matrix> ShalfGradShalf(new Matrix("ST^{-1/2}(FDS - SDF)S^{-1/2}", nso, nso));
+        ShalfGradShalf->gemm(false,false,1.0,ShalfGrad,Shalf,0.0);
+
+        ShalfGrad.reset();
+
+        // We will use the RMS of the orbital gradient 
+        // to monitor convergence.
+        gnorm = ShalfGradShalf->rms();
+
+        // The DIIS manager will write the current error vector to disk.
+        diis->WriteErrorVector(&(ShalfGradShalf->pointer()[0][0]));
+        if(gnorm<0.1){
+            diis->Extrapolate(&(Fprime->pointer()[0][0]));
+            printf("do diis\n");
+        }
         deld = 0.0;
         for(int mu = 0; mu < nso; ++mu){
             for(int nu = 0; nu < nso; ++nu){
@@ -257,30 +301,44 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
         outfile->Printf("    %6i%20.12lf%20.12lf%20.12lf\n", iter, new_energy, dele, deld);
         energy = new_energy;
+        Fprime->diagonalize(Ca,Feval);
+
+        //building density matrix
+
+        Dnew = (std::shared_ptr<Matrix>)(new Matrix(nso,nso));
+        dnew_p = Dnew->pointer();
+#pragma omp parallel for
+        for(int mu = 0; mu < nso; ++mu){
+            for(int nu = 0; nu < nso; ++nu){
+                for(int i = 0; i < na; ++i){
+                    dnew_p[mu][nu] += Ca->pointer()[mu][i] * Ca->pointer()[nu][i];
+                }
+            }
+        }
         D->copy(Dnew);
 
         iter++;
         if( iter > maxiter ) break;
+        printf("gnorm: %f\n",gnorm);
+        }while(dele > e_convergence || deld > d_convergence);
 
-    }while(dele > e_convergence || deld > d_convergence);
-    
-    if ( iter > maxiter ) {
-        throw PsiException("jellium scf did not converge.",__FILE__,__LINE__);
+        if ( iter > maxiter ) {
+            throw PsiException("jellium scf did not converge.",__FILE__,__LINE__);
+        }
+
+        outfile->Printf("\n");
+        outfile->Printf("      SCF iterations converged!\n");
+        outfile->Printf("\n");
+
+        double fock_energy = D->vector_dot(K) / Lfac;
+        //V->print();
+        outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
+        outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
+        return ref_wfn;
+
+        // Typically you would build a new wavefunction and populate it with data
+        return ref_wfn;
     }
-
-    outfile->Printf("\n");
-    outfile->Printf("      SCF iterations converged!\n");
-    outfile->Printf("\n");
-
-    double fock_energy = D->vector_dot(K) / Lfac;
-    //V->print();
-    outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
-    outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
-    return ref_wfn;
-
-    // Typically you would build a new wavefunction and populate it with data
-    return ref_wfn;
-}
 
 }} // End namespaces
 

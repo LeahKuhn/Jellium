@@ -80,12 +80,12 @@ JelliumIntegrals::~JelliumIntegrals()
 
 void JelliumIntegrals::common_init() {
 
-    x1 = (int *)malloc(3*sizeof(int));
-    x2 = (int *)malloc(3*sizeof(int));
-    y1 = (int *)malloc(3*sizeof(int));
-    y2 = (int *)malloc(3*sizeof(int));
-    z1 = (int *)malloc(3*sizeof(int));
-    z2 = (int *)malloc(3*sizeof(int));
+   // x1 = (int *)malloc(3*sizeof(int));
+   // x2 = (int *)malloc(3*sizeof(int));
+   // y1 = (int *)malloc(3*sizeof(int));
+   // y2 = (int *)malloc(3*sizeof(int));
+   // z1 = (int *)malloc(3*sizeof(int));
+   // z2 = (int *)malloc(3*sizeof(int));
     
 }
 
@@ -113,7 +113,6 @@ void JelliumIntegrals::compute() {
 
   std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
   MO  = MAT_INT(3*nmax*nmax*nmax,3);
-
   OrderPsis3D(nmax, ORBE->pointer(), MO);
   Legendre tmp;
   //  Constructe grid and weights, store them to the vectors x and w, respectively.
@@ -159,20 +158,20 @@ void JelliumIntegrals::compute() {
   unsigned long start_pq = clock();
   // now, compute (P|Q)
   outfile->Printf("    build (P|Q)..................."); fflush(stdout);
-  PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
-  for (int i = 0; i < 2*nmax+1; i++) {
-      PQmap[i] = (int **)malloc((2*nmax+1)*sizeof(int*));
-      for (int j = 0; j < 2*nmax+1; j++) {
-          PQmap[i][j] = (int *)malloc((2*nmax+1)*sizeof(int));
-          for (int k = 0; k < 2*nmax+1; k++) {
+  PQmap = (int ***)malloc((2*nmax+2)*sizeof(int**));
+  for (int i = 0; i < 2*nmax+2; i++) {
+      PQmap[i] = (int **)malloc((2*nmax+2)*sizeof(int*));
+      for (int j = 0; j < 2*nmax+2; j++) {
+          PQmap[i][j] = (int *)malloc((2*nmax+2)*sizeof(int));
+          for (int k = 0; k < 2*nmax+2; k++) {
               PQmap[i][j][k] = 999;
           }
       }
   }
   int Pdim = 0;
-  for (int px = 0; px < 2*nmax+1; px++) {
-      for (int py = 0; py < 2*nmax+1; py++) {
-          for (int pz = 0; pz < 2*nmax+1; pz++) {
+  for (int px = 0; px < 2*nmax+2; px++) {
+      for (int py = 0; py < 2*nmax+2; py++) {
+          for (int pz = 0; pz < 2*nmax+2; pz++) {
               PQmap[px][py][pz] = Pdim;
               Pdim++;
           }
@@ -191,22 +190,24 @@ void JelliumIntegrals::compute() {
   printf("hello world %d\n", omp_get_max_threads());
   long iterations = 1.3333*pow(nmax,6)+10*pow(nmax,5)+33*pow(nmax,4)+60.833*pow(nmax,3)+65.667*pow(nmax,2)+39.168*nmax+9.9869;
   iterations/=2000;
-  for (int px = 0; px < 2*nmax+1; px++) {
-  #pragma omp parallel for
-      for (int qx = px; qx < 2*nmax+1; qx++) {
+  #pragma omp parallel
+  {
+  #pragma omp for schedule(dynamic) nowait 
+  for (int px = 0; px < 2*nmax+2; px++) {
+      for (int qx = px; qx < 2*nmax+2; qx++) {
 
-          int pq_x = px*(2*nmax+1) + qx;
+          int pq_x = px*(2*nmax+2) + qx;
 
-          for (int py = 0; py < 2*nmax+1; py++) {
-              for (int qy = py; qy < 2*nmax+1; qy++) {
+          for (int py = 0; py < 2*nmax+2; py++) {
+              for (int qy = py; qy < 2*nmax+2; qy++) {
 
-                  int pq_y = py*(2*nmax+1) + qy;
+                  int pq_y = py*(2*nmax+2) + qy;
                   if ( pq_x > pq_y ) continue;
 
-                  for (int pz = 0; pz < 2*nmax+1; pz++) {
-                      for (int qz = pz; qz < 2*nmax+1; qz++) {
+                  for (int pz = 0; pz < 2*nmax+2; pz++) {
+                      for (int qz = pz; qz < 2*nmax+2; qz++) {
 
-                          int pq_z = pz*(2*nmax+1) + qz;
+                          int pq_z = pz*(2*nmax+2) + qz;
                           if ( pq_y > pq_z ) continue;
 
                           if(int(counter/(iterations))>complete){
@@ -431,6 +432,7 @@ void JelliumIntegrals::compute() {
           }
       }
   }
+  }
 printf("%ld\n",counter);
                           //int P = PQmap[ 0 ][ 0 ][ 0 ];
                           //int Q = PQmap[ 0 ][ 0 ][ 0 ];
@@ -447,7 +449,9 @@ printf("%ld\n",counter);
   // will not be computed, but this is still not exploiting symmetry fully
   outfile->Printf("    build potential integrals.....");fflush(stdout);
   unsigned long start = clock();
-  #pragma omp parallel for
+  #pragma omp parallel
+  {
+  #pragma omp for schedule(dynamic) nowait
   for (int i=0; i<orbitalMax; i++) {
   int* mu;
   int* nu;
@@ -460,9 +464,6 @@ printf("%ld\n",counter);
           // Kinetic Energy Integrals - already computed and stored in ORBE vector    
           if (i==j) { 
               Ke->pointer()[i][j] = 0.5*ORBE->pointer()[i];
-          }
-          else {
-              Ke->pointer()[i][j] = 0.0;
           }
           //printf("%f",kinval);
           // Print Kinetic Energy Integral to file
@@ -497,6 +498,7 @@ printf("%ld\n",counter);
           //   }
           //}
       }
+  }
   }
   // hey Danny, why isn't this tensor symmetric?
   //for (int i=0; i<orbitalMax; i++) {
@@ -668,8 +670,6 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
     // - Cos[qx x1] Cos[qy y1] Cos[qz z1]
     Vab  -= pq_int_new(dim,  0,  0,  0, qx, qy, qz);
 
-          //if(Vab == 0){
-             //printf("px[0]: %d, py[0]: %d, pz[0]: %d, qx[0]: %d, qy[0]: %d, qz[0]: %d, val %f\n",px,py,pz,qx,qy,qz,Vab);
             //if(px != py && py != pz && px != pz && px%2==0 && pz%2==0 && py%2==0){ printf("three different even\t : Vab %f",Vab);
             // if((mu[0] == mu[1] && mu[1] != mu[2] && mu[0]%2==0 && mu[2]%2==0) || (mu[0] != mu[1] && mu[1] == mu[2] && mu[0]%2==0 && mu[2]%2==0) || (mu[0] == mu[2] && mu[1] != mu[2] && mu[1]%2==0 && mu[2]%2==0)) printf("A1g + Eg\t");
             // if(mu[0] != mu[1] && mu[1] != mu[2] && mu[0]%2==0 && mu[1]%2==0 && mu[2]%2==0) printf("A1g + A2g + 2Eg\t");
@@ -678,7 +678,6 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
             // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("A1g\t");
             // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("A1g\t");
             // if(mu[0] == mu[1] && mu[1] == mu[2] && mu[0]%2==0) printf("A1g\t");
-          //}
     return -Vab;
 
 }
@@ -705,103 +704,109 @@ double JelliumIntegrals::E0_Int(int dim, double *xa, double *w) {
 //  integrals where p is related to (a-b) or (a+b) and q is related to (c-d) or (c+d)
 //  This function automatically enumerates all the appropriate (p|q), computes them, and
 //  accumulates the total... Hopefully it works!
-double JelliumIntegrals::ERI(int dim, double *xa, double *w, int *a, int *b, int *c, int *d) {
-
-  int i, j, k, l, m, n;
- // double *x1, *x2, *y1, *y2, *z1, *z2;
-  int faci, facj, fack, facl, facm, facn, fac;;
-  //char *cp, *cq, *cr, *cs;
-  double eri_val;
-  //static const char *cx1[] = {"px x1", "qx x1"};
-  //static const char *cx2[] = {"rx x2", "sx x2"};
-  //static const char *cy1[] = {"py y1", "qy y1"};
-  //static const char *cy2[] = {"ry y2", "sy y2"};
-  //static const char *cz1[] = {"pz z1", "qz z1"};
-  //static const char *cz2[] = {"rz z2", "sz z2"};  
-
-
-  //x1 = (double *)malloc(3*sizeof(double));
-  //x2 = (double *)malloc(3*sizeof(double));
-  //y1 = (double *)malloc(3*sizeof(double));
-  //y2 = (double *)malloc(3*sizeof(double));
-  //z1 = (double *)malloc(3*sizeof(double));
-  //z2 = (double *)malloc(3*sizeof(double));
-
-  //x1[0] = ax-bx, x1[1] = ax+bx
-  x1[0] = a[0] - b[0];
-  x1[1] = a[0] + b[0];
-  y1[0] = a[1] - b[1];
-  y1[1] = a[1] + b[1];
-  z1[0] = a[2] - b[2];
-  z1[1] = a[2] + b[2];
-
-  //x1[0] = cx-dx, x1[1] = cx+dx
-  x2[0] = c[0] - d[0];
-  x2[1] = c[0] + d[0];
-  y2[0] = c[1] - d[1];
-  y2[1] = c[1] + d[1];
-  z2[0] = c[2] - d[2];
-  z2[1] = c[2] + d[2];
-
-  double tempval = 0.0;
-  eri_val = 0.;
-  // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
-  for (i=0; i<2; i++) {
-    faci = (int)pow(-1,i);
-    for (j=0; j<2; j++) {
-      facj = (int)pow(-1,j);
-      for (k=0; k<2; k++) {
-        fack = (int)pow(-1,k);
-        for (l=0; l<2; l++) { 
-          facl = (int)pow(-1,l);
-          for (m=0; m<2; m++) {
-            facm = (int)pow(-1,m);
-            for (n=0; n<2; n++) {
-              facn = (int)pow(-1,n);
-   
-              fac = faci*facj*fack*facl*facm*facn;          
-              // Uncomment to see the functions being integrated in each call to pq_int 
-              //printf(" + %f Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] \n",
-              //fac,cx1[n],cx2[m],cy1[l],cy2[k],cz1[j],cz2[i]);
-              // recall pq_int args are -> dim, *xa, *w, px, py, pz, qx, qy, qz
-              // order of indices to get these values is a bit strange, see print statement
-              // for example of ordering!
-              tempval = pq_int(dim, xa, w, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i]);
-             //printf("%d %d %d | %d %d %d -> ",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
-             //printf("%f",tempval);
-
-              // TABLE IV DEBUG LINE!!!!!!
-              //printf("  (%d %d %d | %d %d %d) -> %17.14f\n",x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],tempval);
-              eri_val += fac*tempval;
-
-            }
-          } 
-        }
-      }
-    }
-  }
-
- 
-  //free(x1);
-  //free(x2);
-  //free(y1);
-  //free(y2);
-  //free(z1);
-  //free(z2);
-
-  return eri_val;
-
-}
+//double JelliumIntegrals::ERI(int dim, double *xa, double *w, int *a, int *b, int *c, int *d) {
+//
+//  int i, j, k, l, m, n;
+// // double *x1, *x2, *y1, *y2, *z1, *z2;
+//  int faci, facj, fack, facl, facm, facn, fac;;
+//  //char *cp, *cq, *cr, *cs;
+//  double eri_val;
+//  //static const char *cx1[] = {"px x1", "qx x1"};
+//  //static const char *cx2[] = {"rx x2", "sx x2"};
+//  //static const char *cy1[] = {"py y1", "qy y1"};
+//  //static const char *cy2[] = {"ry y2", "sy y2"};
+//  //static const char *cz1[] = {"pz z1", "qz z1"};
+//  //static const char *cz2[] = {"rz z2", "sz z2"};  
+//
+//
+//  //x1 = (double *)malloc(3*sizeof(double));
+//  //x2 = (double *)malloc(3*sizeof(double));
+//  //y1 = (double *)malloc(3*sizeof(double));
+//  //y2 = (double *)malloc(3*sizeof(double));
+//  //z1 = (double *)malloc(3*sizeof(double));
+//  //z2 = (double *)malloc(3*sizeof(double));
+//
+//  //x1[0] = ax-bx, x1[1] = ax+bx
+//  x1[0] = a[0] - b[0];
+//  x1[1] = a[0] + b[0];
+//  y1[0] = a[1] - b[1];
+//  y1[1] = a[1] + b[1];
+//  z1[0] = a[2] - b[2];
+//  z1[1] = a[2] + b[2];
+//
+//  //x1[0] = cx-dx, x1[1] = cx+dx
+//  x2[0] = c[0] - d[0];
+//  x2[1] = c[0] + d[0];
+//  y2[0] = c[1] - d[1];
+//  y2[1] = c[1] + d[1];
+//  z2[0] = c[2] - d[2];
+//  z2[1] = c[2] + d[2];
+//
+//  double tempval = 0.0;
+//  eri_val = 0.;
+//  // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
+//  for (i=0; i<2; i++) {
+//    faci = (int)pow(-1,i);
+//    for (j=0; j<2; j++) {
+//      facj = (int)pow(-1,j);
+//      for (k=0; k<2; k++) {
+//        fack = (int)pow(-1,k);
+//        for (l=0; l<2; l++) { 
+//          facl = (int)pow(-1,l);
+//          for (m=0; m<2; m++) {
+//            facm = (int)pow(-1,m);
+//            for (n=0; n<2; n++) {
+//              facn = (int)pow(-1,n);
+//   
+//              fac = faci*facj*fack*facl*facm*facn;          
+//              // Uncomment to see the functions being integrated in each call to pq_int 
+//              //printf(" + %f Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] \n",
+//              //fac,cx1[n],cx2[m],cy1[l],cy2[k],cz1[j],cz2[i]);
+//              // recall pq_int args are -> dim, *xa, *w, px, py, pz, qx, qy, qz
+//              // order of indices to get these values is a bit strange, see print statement
+//              // for example of ordering!
+//              tempval = pq_int(dim, xa, w, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i]);
+//             //printf("%d %d %d | %d %d %d -> ",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
+//             //printf("%f",tempval);
+//
+//              // TABLE IV DEBUG LINE!!!!!!
+//              //printf("  (%d %d %d | %d %d %d) -> %17.14f\n",x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],tempval);
+//              eri_val += fac*tempval;
+//
+//            }
+//          } 
+//        }
+//      }
+//    }
+//  }
+//
+// 
+//  //free(x1);
+//  //free(x2);
+//  //free(y1);
+//  //free(y2);
+//  //free(z1);
+//  //free(z2);
+//
+//  return eri_val;
+//
+//}
 
 double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
-  //c[0] =0;
-  //c[1] = 0;
-  //d[0] = 0;
-  //d[1] = 0;
-  //if(a[0] == a[1]){
-  //  return 0;
-  //}
+  
+  int x = (a[0]+b[0]+c[0]+d[0])%2;
+  int y = (a[1]+b[1]+c[1]+d[1])%2;
+  int z = (a[2]+b[2]+c[2]+d[2])%2;
+  if(x==1 || y==1 || z==1){return 0;}
+
   //x1[0] = ax-bx, x1[1] = ax+bx
+  int* x1 = (int *)malloc(3*sizeof(int));
+  int* x2 = (int *)malloc(3*sizeof(int));
+  int* y1 = (int *)malloc(3*sizeof(int));
+  int* y2 = (int *)malloc(3*sizeof(int));
+  int* z1 = (int *)malloc(3*sizeof(int));
+  int* z2 = (int *)malloc(3*sizeof(int));
+ 
   x1[0] = abs(a[0] - b[0]);
   y1[0] = abs(a[1] - b[1]);
   z1[0] = abs(a[2] - b[2]);
@@ -820,10 +825,10 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   z2[1] = c[2] + d[2];
  
   //bool guess = false;
-  ////if((z1[0]+z1[1])!=(z2[0]+z2[1]) && (x1[0]+x1[1])!=(x2[0]+x2[1]) && (y1[0]+y1[1])!=(y2[0]+y2[1])){
-  //if(x1[0]!=x2[0] && y1[0]!=y2[0] && z1[0]!=z2[0]){
+  ///if((z1[0]+z1[1])!=(z2[0]+z2[1]) && (x1[0]+x1[1])!=(x2[0]+x2[1]) && (y1[0]+y1[1])!=(y2[0]+y2[1])){
+  //if(x1[0]*y1[0]*z1[0] == 0){
   //  if(x1[0]%2==1 || y1[0]%2==1 || y1[0]%2==1){
-  //  //return 0.0;
+  //  return 0.0;
   //  guess = true; }
   //}
   //if(x1[0]%2!=0 || (y1[0])%2!=0){
@@ -1090,123 +1095,129 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
   eri_val += PQ[P][Q];
 
-  //if(eri_val != 0 && guess==true)
-    // printf("x1[0]: %d x1[1]: %d y1[0]: %d y1[1]: %d z1[0]: %d z1[1]: %d x2[0] %d x2[1] %d y2[0] %d y2[1] %d z2[0] %d z2[1] %d\n",x1[0],x1[1],y1[0],y1[1],z1[0],z1[1],x2[0],x2[1],y2[0],y2[1],z2[0],z2[1]);
-     //printf("x1[0]: %d x1[1]: %d x2[0]: %d x2[1]: %d\n",x1[0],x1[1],x2[0],x2[1]);
+  if(eri_val == 0)
+    printf("a[0]: %d a[1]: %d a[2]: %d b[0]: %d b[1]: %d b[2]: %d c[0] %d c[1] %d c[2] %d d[0] %d d[1] %d d[2] %d value %f\n",a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2],eri_val);
+     //printf("a: %d b: %d c: %d d: %d eri_val %f\n",(a[0]+a[1]+a[2]),(b[0]+b[1]+b[2]),(c[0]+c[1]+c[2]),(d[0]+d[1]+d[2]),eri_val);
+  free(x1);
+  free(x2);
+  free(y1);
+  free(y2);
+  free(z1);
+  free(z2);
   return eri_val;
 
 }
 
 //double JelliumIntegrals::ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap) {
-double JelliumIntegrals::ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
-
-  //int * x1 = (int *)malloc(3*sizeof(int));
-  //int * x2 = (int *)malloc(3*sizeof(int));
-  //int * y1 = (int *)malloc(3*sizeof(int));
-  //int * y2 = (int *)malloc(3*sizeof(int));
-  //int * z1 = (int *)malloc(3*sizeof(int));
-  //int * z2 = (int *)malloc(3*sizeof(int));
-
-  //x1[0] = ax-bx, x1[1] = ax+bx
-  x1[0] = a[0] - b[0];
-  x1[1] = a[0] + b[0];
-  y1[0] = a[1] - b[1];
-  y1[1] = a[1] + b[1];
-  z1[0] = a[2] - b[2];
-  z1[1] = a[2] + b[2];
-
-  //x1[0] = cx-dx, x1[1] = cx+dx
-  x2[0] = c[0] - d[0];
-  x2[1] = c[0] + d[0];
-  y2[0] = c[1] - d[1];
-  y2[1] = c[1] + d[1];
-  z2[0] = c[2] - d[2];
-  z2[1] = c[2] + d[2];
-
- //x1[0] = (int)(a->pointer()[0] - b->pointer()[0]);
- //x1[1] = (int)(a->pointer()[0] + b->pointer()[0]);
- //y1[0] = (int)(a->pointer()[1] - b->pointer()[1]);
- //y1[1] = (int)(a->pointer()[1] + b->pointer()[1]);
- //z1[0] = (int)(a->pointer()[2] - b->pointer()[2]);
- //z1[1] = (int)(a->pointer()[2] + b->pointer()[2]);
-
- ////x1[0] = cx-dx, x1[1] = cx+dx
- //x2[0] = (int)(c->pointer()[0] - d->pointer()[0]);
- //x2[1] = (int)(c->pointer()[0] + d->pointer()[0]);
- //y2[0] = (int)(c->pointer()[1] - d->pointer()[1]);
- //y2[1] = (int)(c->pointer()[1] + d->pointer()[1]);
- //z2[0] = (int)(c->pointer()[2] - d->pointer()[2]);
- //z2[1] = (int)(c->pointer()[2] + d->pointer()[2]);
-
-  // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
-
-  double eri_val = 0.0;
-
-  for (int i = 0; i < 2; i++) {
-      if ( z2[i] < 0 ) continue;
-      int faci = (int)pow(-1,i);
-      for (int j = 0; j < 2; j++) {
-          if ( z1[j] < 0 ) continue;
-          int facij = faci * (int)pow(-1,j);
-          for (int k = 0; k < 2; k++) {
-              if ( y2[k] < 0 ) continue;
-              int facijk = facij * (int)pow(-1,k);
-              for (int l = 0; l < 2; l++) { 
-                  if ( y1[l] < 0 ) continue;
-                  int facijkl = facijk * (int)pow(-1,l);
-                  for (int m = 0; m < 2; m++) {
-                      if ( x2[m] < 0 ) continue;
-                      int facijklm = facijkl * (int)pow(-1,m);
-                      for (int n = 0; n < 2; n++) {
-
-                          if ( x1[n] < 0 ) continue;
-                          int facijklmn = facijklm * (int)pow(-1,n);
-   
-                          // Uncomment to see the functions being integrated in each call to pq_int 
-                          //printf(" + %f Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] \n",
-                          //fac,cx1[n],cx2[m],cy1[l],cy2[k],cz1[j],cz2[i]);
-                          // recall pq_int args are -> dim, *xa, *w, px, py, pz, qx, qy, qz
-                          // order of indices to get these values is a bit strange, see print statement
-                          // for example of ordering!
-
-                          //double dum = pq_int(dim, xa, w, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i]);
-
-                          int P = PQmap[ x1[n] ][ y1[l] ][ z1[j] ];
-                          int Q = PQmap[ x2[m] ][ y2[k] ][ z2[i] ];
-                          if ( P == -999 || Q == -999 ) {
-                              outfile->Printf("\n");
-                              outfile->Printf("    well, something is wrong with the indexing.\n");
-                              outfile->Printf("    %5i %5i\n",P,Q);
-                              outfile->Printf("    %5i %5i %5i; %5i %5i %5i\n",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
-                              outfile->Printf("\n");
-                              exit(1);
-                          }
-                          double dum = PQ[P][Q];
-
-                          //double dum = pq_int_new(dim, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],g_tensor,orbitalMax,sqrt_tensor);
-
-                          // TABLE IV DEBUG LINE!!!!!!
-                         // printf("  (%d %d %d | %d %d %d) -> %17.14f\n",x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],dum);
-                          eri_val += facijklmn * dum;
-
-                      }
-                  } 
-              }
-          }
-      }
-  }
-
- 
-  //free(x1);
-  //free(x2);
-  //free(y1);
-  //free(y2);
-  //free(z1);
-  //free(z2);
-
-  return eri_val;
-
-}
+//double JelliumIntegrals::ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
+//
+//  //int * x1 = (int *)malloc(3*sizeof(int));
+//  //int * x2 = (int *)malloc(3*sizeof(int));
+//  //int * y1 = (int *)malloc(3*sizeof(int));
+//  //int * y2 = (int *)malloc(3*sizeof(int));
+//  //int * z1 = (int *)malloc(3*sizeof(int));
+//  //int * z2 = (int *)malloc(3*sizeof(int));
+//
+//  //x1[0] = ax-bx, x1[1] = ax+bx
+//  x1[0] = a[0] - b[0];
+//  x1[1] = a[0] + b[0];
+//  y1[0] = a[1] - b[1];
+//  y1[1] = a[1] + b[1];
+//  z1[0] = a[2] - b[2];
+//  z1[1] = a[2] + b[2];
+//
+//  //x1[0] = cx-dx, x1[1] = cx+dx
+//  x2[0] = c[0] - d[0];
+//  x2[1] = c[0] + d[0];
+//  y2[0] = c[1] - d[1];
+//  y2[1] = c[1] + d[1];
+//  z2[0] = c[2] - d[2];
+//  z2[1] = c[2] + d[2];
+//
+// //x1[0] = (int)(a->pointer()[0] - b->pointer()[0]);
+// //x1[1] = (int)(a->pointer()[0] + b->pointer()[0]);
+// //y1[0] = (int)(a->pointer()[1] - b->pointer()[1]);
+// //y1[1] = (int)(a->pointer()[1] + b->pointer()[1]);
+// //z1[0] = (int)(a->pointer()[2] - b->pointer()[2]);
+// //z1[1] = (int)(a->pointer()[2] + b->pointer()[2]);
+//
+// ////x1[0] = cx-dx, x1[1] = cx+dx
+// //x2[0] = (int)(c->pointer()[0] - d->pointer()[0]);
+// //x2[1] = (int)(c->pointer()[0] + d->pointer()[0]);
+// //y2[0] = (int)(c->pointer()[1] - d->pointer()[1]);
+// //y2[1] = (int)(c->pointer()[1] + d->pointer()[1]);
+// //z2[0] = (int)(c->pointer()[2] - d->pointer()[2]);
+// //z2[1] = (int)(c->pointer()[2] + d->pointer()[2]);
+//
+//  // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
+//
+//  double eri_val = 0.0;
+//
+//  for (int i = 0; i < 2; i++) {
+//      if ( z2[i] < 0 ) continue;
+//      int faci = (int)pow(-1,i);
+//      for (int j = 0; j < 2; j++) {
+//          if ( z1[j] < 0 ) continue;
+//          int facij = faci * (int)pow(-1,j);
+//          for (int k = 0; k < 2; k++) {
+//              if ( y2[k] < 0 ) continue;
+//              int facijk = facij * (int)pow(-1,k);
+//              for (int l = 0; l < 2; l++) { 
+//                  if ( y1[l] < 0 ) continue;
+//                  int facijkl = facijk * (int)pow(-1,l);
+//                  for (int m = 0; m < 2; m++) {
+//                      if ( x2[m] < 0 ) continue;
+//                      int facijklm = facijkl * (int)pow(-1,m);
+//                      for (int n = 0; n < 2; n++) {
+//
+//                          if ( x1[n] < 0 ) continue;
+//                          int facijklmn = facijklm * (int)pow(-1,n);
+//   
+//                          // Uncomment to see the functions being integrated in each call to pq_int 
+//                          //printf(" + %f Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] Cos[%s] \n",
+//                          //fac,cx1[n],cx2[m],cy1[l],cy2[k],cz1[j],cz2[i]);
+//                          // recall pq_int args are -> dim, *xa, *w, px, py, pz, qx, qy, qz
+//                          // order of indices to get these values is a bit strange, see print statement
+//                          // for example of ordering!
+//
+//                          //double dum = pq_int(dim, xa, w, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i]);
+//
+//                          int P = PQmap[ x1[n] ][ y1[l] ][ z1[j] ];
+//                          int Q = PQmap[ x2[m] ][ y2[k] ][ z2[i] ];
+//                          if ( P == -999 || Q == -999 ) {
+//                              outfile->Printf("\n");
+//                              outfile->Printf("    well, something is wrong with the indexing.\n");
+//                              outfile->Printf("    %5i %5i\n",P,Q);
+//                              outfile->Printf("    %5i %5i %5i; %5i %5i %5i\n",x1[n],y1[l],z1[j],x2[m],y2[k],z2[i]);
+//                              outfile->Printf("\n");
+//                              exit(1);
+//                          }
+//                          double dum = PQ[P][Q];
+//
+//                          //double dum = pq_int_new(dim, x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],g_tensor,orbitalMax,sqrt_tensor);
+//
+//                          // TABLE IV DEBUG LINE!!!!!!
+//                         // printf("  (%d %d %d | %d %d %d) -> %17.14f\n",x1[n], y1[l], z1[j], x2[m], y2[k], z2[i],dum);
+//                          eri_val += facijklmn * dum;
+//
+//                      }
+//                  } 
+//              }
+//          }
+//      }
+//  }
+//
+// 
+//  //free(x1);
+//  //free(x2);
+//  //free(y1);
+//  //free(y2);
+//  //free(z1);
+//  //free(z2);
+//
+//  return eri_val;
+//
+//}
 
 // This function implements Eq. 4.7 and 4.8 in Peter Gills paper on 2-electrons in a cube
 // Gauss-Legendre quadrature is used for the 3d integral on the range 0->1 for x, y, and z
@@ -1352,9 +1363,9 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
   
     //outfile->Printf(" exit successful \n");
   
-    //  for (i=0; i<(norbs*norbs*norbs); i++) {
-    //    outfile->Printf("  Psi( %i , %i, %i ) %i\n",MO[i][0],MO[i][1],MO[i][2],E[i]);
-    //  }
+      for (i=0; i<(norbs*norbs*norbs); i++) {
+       // outfile->Printf("  Psi( %i , %i, %i ) %i\n",MO[i][0],MO[i][1],MO[i][2],E[i]);
+      }
 
     int new_nmax = 0;
     for (int i = 0; i < orbitalMax; i++) {

@@ -91,12 +91,12 @@ class JelliumIntegrals{
     void OrderPsis3D(int &norbs, double *E, int **MO);
     int **MAT_INT(int dim1, int dim2);
     int *VEC_INT(int dim);
-    int * x1;
-    int * x2;
-    int * y1;
-    int * y2;
-    int * z1;
-    int * z2;
+    //int * x1;
+    //int * x2;
+    //int * y1;
+    //int * y2;
+    //int * z1;
+    //int * z2;
 };
 
 }}
