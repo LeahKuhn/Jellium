@@ -97,7 +97,6 @@ void JelliumIntegrals::compute() {
   //printf ( "  Normal end of execution.\n" );
 
   //printf ( "\n" );
-
   double a = 0.0;
   double b = 1.0;
   int n = options_.get_int("N_GRID_POINTS");
@@ -110,7 +109,7 @@ void JelliumIntegrals::compute() {
   sig  = (int*)malloc(3*sizeof(int));
   lam  = (int*)malloc(3*sizeof(int));
 
-  nmax=20;
+  nmax=30;
   //TODO: make this vector irrep from the get go
   std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
   MO  = MAT_INT(3*nmax*nmax*nmax,3);
@@ -160,20 +159,20 @@ void JelliumIntegrals::compute() {
   unsigned long start_pq = clock();
   // now, compute (P|Q)
   outfile->Printf("    build (P|Q)..................."); fflush(stdout);
-  PQmap = (int ***)malloc((2*nmax+2)*sizeof(int**));
-  for (int i = 0; i < 2*nmax+2; i++) {
-      PQmap[i] = (int **)malloc((2*nmax+2)*sizeof(int*));
-      for (int j = 0; j < 2*nmax+2; j++) {
-          PQmap[i][j] = (int *)malloc((2*nmax+2)*sizeof(int));
-          for (int k = 0; k < 2*nmax+2; k++) {
+  PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
+  for (int i = 0; i < 2*nmax+1; i++) {
+      PQmap[i] = (int **)malloc((2*nmax+1)*sizeof(int*));
+      for (int j = 0; j < 2*nmax+1; j++) {
+          PQmap[i][j] = (int *)malloc((2*nmax+1)*sizeof(int));
+          for (int k = 0; k < 2*nmax+1; k++) {
               PQmap[i][j][k] = 999;
           }
       }
   }
   int Pdim = 0;
-  for (int px = 0; px < 2*nmax+2; px++) {
-      for (int py = 0; py < 2*nmax+2; py++) {
-          for (int pz = 0; pz < 2*nmax+2; pz++) {
+  for (int px = 0; px < 2*nmax+1; px++) {
+      for (int py = 0; py < 2*nmax+1; py++) {
+          for (int pz = 0; pz < 2*nmax+1; pz++) {
               PQmap[px][py][pz] = Pdim;
               Pdim++;
           }
@@ -184,7 +183,7 @@ void JelliumIntegrals::compute() {
   //exit(1);
   PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
   double ** PQ_p = PQ->pointer();
-  
+  printf("pdim %d\n",Pdim);
   Ke = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
   NucAttrac = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
   int complete = 0;
@@ -195,21 +194,21 @@ void JelliumIntegrals::compute() {
   #pragma omp parallel
   {
   #pragma omp for schedule(dynamic) nowait 
-  for (int px = 0; px < 2*nmax+2; px++) {
-      for (int qx = px; qx < 2*nmax+2; qx++) {
+  for (int px = 0; px < 2*nmax+1; px++) {
+      for (int qx = px; qx < 2*nmax+1; qx++) {
 
-          int pq_x = px*(2*nmax+2) + qx;
+          int pq_x = px*(2*nmax+1) + qx;
 
-          for (int py = 0; py < 2*nmax+2; py++) {
-              for (int qy = py; qy < 2*nmax+2; qy++) {
+          for (int py = 0; py < 2*nmax+1; py++) {
+              for (int qy = py; qy < 2*nmax+1; qy++) {
 
-                  int pq_y = py*(2*nmax+2) + qy;
+                  int pq_y = py*(2*nmax+1) + qy;
                   if ( pq_x > pq_y ) continue;
 
-                  for (int pz = 0; pz < 2*nmax+2; pz++) {
-                      for (int qz = pz; qz < 2*nmax+2; qz++) {
+                  for (int pz = 0; pz < 2*nmax+1; pz++) {
+                      for (int qz = pz; qz < 2*nmax+1; qz++) {
 
-                          int pq_z = pz*(2*nmax+2) + qz;
+                          int pq_z = pz*(2*nmax+1) + qz;
                           if ( pq_y > pq_z ) continue;
 
                           if(int(counter/(iterations))>complete){
@@ -451,19 +450,22 @@ void JelliumIntegrals::compute() {
   // will not be computed, but this is still not exploiting symmetry fully
   outfile->Printf("    build potential integrals.....");fflush(stdout);
   unsigned long start = clock();
-  int offset = 0;
-  //#pragma omp parallel
+  #pragma omp parallel
   {
-  //#pragma omp for schedule(dynamic) nowait
+  #pragma omp for schedule(dynamic) nowait
   for(int h = 0; h < nirrep_;h++){
+     int offset = 0;
      double** Ke_p = Ke->pointer(h);
+     for(int i = 0; i < h; i ++){
+        offset += nsopi_[i];
+     }
      double** Nu_p = NucAttrac->pointer(h);
   for (int i=0; i< nsopi_[h]; i++) {
   int* mu;
   int* nu;
       mu = MO[i+offset];
 
-      for (int j=0; j< nsopi_[h]; j++) {
+      for (int j=i; j< nsopi_[h]; j++) {
           nu = MO[j+offset];
 
           // Lower triangle of 1-electron integrals will be computed, fully exploiting symmetry (I think!)
@@ -475,10 +477,11 @@ void JelliumIntegrals::compute() {
           // Nuclear-attraction Integrals
           double dum = Vab_Int_new(n, x, w, mu, nu);
           Nu_p[i][j] = dum;
+          Nu_p[j][i] = dum;
 
       }
   }
-     offset += nsopi_[h];
+     //offset += nsopi_[h];
     }
   }
   // hey Danny, why isn't this tensor symmetric?
