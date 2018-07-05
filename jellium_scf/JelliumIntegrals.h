@@ -55,17 +55,20 @@ class JelliumIntegrals{
     std::shared_ptr<Matrix> NucAttrac;
     std::shared_ptr<Matrix> Ke;
     std::shared_ptr<Matrix> PQ;
+    int* Eirrep_;
     double selfval = 0.0;
     double ERI_int(int a, int b, int c, int d);
-
+    int* nsopi_;
     int get_nmax();
-
+    int nirrep_;
   private:
     void compute();
+    void Orderirrep(int &norbs, double *E, int **MO, int electrons);
     std::shared_ptr<Vector> sqrt_tensor;
     std::shared_ptr<Vector> g_tensor;
     double n_order_;
     int ** MO;
+    int electrons;
     int *** PQmap;
     int orbitalMax;
     int nmax = 0;

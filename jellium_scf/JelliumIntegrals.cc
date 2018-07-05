@@ -69,6 +69,7 @@ JelliumIntegrals::JelliumIntegrals(Options & options):
 
     orbitalMax = options.get_int("N_BASIS_FUNCTIONS");
     length = options.get_double("LENGTH");
+    electrons = options.get_int("N_ELECTRONS");
     common_init();
     compute();
 }
@@ -110,10 +111,11 @@ void JelliumIntegrals::compute() {
   lam  = (int*)malloc(3*sizeof(int));
 
   nmax=20;
-
+  //TODO: make this vector irrep from the get go
   std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
   MO  = MAT_INT(3*nmax*nmax*nmax,3);
   OrderPsis3D(nmax, ORBE->pointer(), MO);
+  Orderirrep(nmax, ORBE->pointer(), MO, electrons);
   Legendre tmp;
   //  Constructe grid and weights, store them to the vectors x and w, respectively.
   //  This is one of John Burkhardt's library functions
@@ -183,11 +185,11 @@ void JelliumIntegrals::compute() {
   PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
   double ** PQ_p = PQ->pointer();
   
-  Ke = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
-  NucAttrac = std::shared_ptr<Matrix>(new Matrix(orbitalMax,orbitalMax));
+  Ke = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
+  NucAttrac = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
   int complete = 0;
   long counter = 0;
-  printf("hello world %d\n", omp_get_max_threads());
+  //printf("hello world %d\n", omp_get_max_threads());
   long iterations = 1.3333*pow(nmax,6)+10*pow(nmax,5)+33*pow(nmax,4)+60.833*pow(nmax,3)+65.667*pow(nmax,2)+39.168*nmax+9.9869;
   iterations/=2000;
   #pragma omp parallel
@@ -211,7 +213,7 @@ void JelliumIntegrals::compute() {
                           if ( pq_y > pq_z ) continue;
 
                           if(int(counter/(iterations))>complete){
-                             printf("\r%i%% complete",complete);
+                             //printf("\r%i%% complete",complete);
                              fflush(stdout);
                              complete++;
                           }
@@ -433,7 +435,7 @@ void JelliumIntegrals::compute() {
       }
   }
   }
-printf("%ld\n",counter);
+//printf("%ld\n",counter);
                           //int P = PQmap[ 0 ][ 0 ][ 0 ];
                           //int Q = PQmap[ 0 ][ 0 ][ 0 ];
                           //double dum = PQ->pointer()[P][Q];
@@ -449,56 +451,35 @@ printf("%ld\n",counter);
   // will not be computed, but this is still not exploiting symmetry fully
   outfile->Printf("    build potential integrals.....");fflush(stdout);
   unsigned long start = clock();
-  #pragma omp parallel
+  int offset = 0;
+  //#pragma omp parallel
   {
-  #pragma omp for schedule(dynamic) nowait
-  for (int i=0; i<orbitalMax; i++) {
+  //#pragma omp for schedule(dynamic) nowait
+  for(int h = 0; h < nirrep_;h++){
+     double** Ke_p = Ke->pointer(h);
+     double** Nu_p = NucAttrac->pointer(h);
+  for (int i=0; i< nsopi_[h]; i++) {
   int* mu;
   int* nu;
-      mu = MO[i];
+      mu = MO[i+offset];
 
-      for (int j=0; j<=i; j++) {
-          nu = MO[j];
+      for (int j=0; j< nsopi_[h]; j++) {
+          nu = MO[j+offset];
 
           // Lower triangle of 1-electron integrals will be computed, fully exploiting symmetry (I think!)
           // Kinetic Energy Integrals - already computed and stored in ORBE vector    
           if (i==j) { 
-              Ke->pointer()[i][j] = 0.5*ORBE->pointer()[i];
+              Ke_p[i][j] = 0.5*ORBE->pointer()[i+offset];
           }
           //printf("%f",kinval);
-          // Print Kinetic Energy Integral to file
           // Nuclear-attraction Integrals
-          //double dum = Vab_Int(n, x, w, mu, nu);
           double dum = Vab_Int_new(n, x, w, mu, nu);
-          NucAttrac->pointer()[i][j] = dum;
-          NucAttrac->pointer()[j][i] = dum;
-          // Print Nuclear-attraction integral to file
+          Nu_p[i][j] = dum;
 
-          // loop over indices for electron 2       
-          //for (int k=0; k<orbitalMax; k++) {
-          //    lam[0] = MO[k][0];
-          //    lam[1] = MO[k][1];
-          //    lam[2] = MO[k][2];
-          //    for (int l=k; l<orbitalMax; l++) {
-          //        sig[0] = MO[l][0];
-          //        sig[1] = MO[l][1];
-          //        sig[2] = MO[l][2];
-   
-          //        // Compute 2-electron integral
-          //       // double erival = ERI_new(mu, nu, lam, sig, PQ->pointer(), PQmap);
-          //       // double dum = ERI(n, x, w, mu, nu, lam, sig);
-          //       // if ( fabs(erival - dum) > 1e-14 ) {
-          //       //     outfile->Printf("uh-oh. %20.12lf %20.12lf\n",erival,dum);
-          //       // }else {
-          //       //     printf("sweet! %20.12lf %20.12lf\n",erival,dum);
-          //       // }
-
-          //        // Print ERI to file
-          //        //fprintf(erifp," %i  %i  %i  %i  %17.14f\n",i+1,j+1,k+1,l+1,erival);
-          //   }
-          //}
       }
   }
+     offset += nsopi_[h];
+    }
   }
   // hey Danny, why isn't this tensor symmetric?
   //for (int i=0; i<orbitalMax; i++) {
@@ -518,7 +499,6 @@ printf("%ld\n",counter);
   selfval = E0_Int(n, x, w);
   // Print to file
   //fprintf(selffp, "  %17.14f\n",selfval); 
-  
   free(x);
   free(w);
   //free(mu);
@@ -797,7 +777,6 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   int x = (a[0]+b[0]+c[0]+d[0])%2;
   int y = (a[1]+b[1]+c[1]+d[1])%2;
   int z = (a[2]+b[2]+c[2]+d[2])%2;
-  if(x==1 || y==1 || z==1){return 0;}
 
   //x1[0] = ax-bx, x1[1] = ax+bx
   int* x1 = (int *)malloc(3*sizeof(int));
@@ -1095,8 +1074,8 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
   eri_val += PQ[P][Q];
 
-  if(eri_val == 0)
-    printf("a[0]: %d a[1]: %d a[2]: %d b[0]: %d b[1]: %d b[2]: %d c[0] %d c[1] %d c[2] %d d[0] %d d[1] %d d[2] %d value %f\n",a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2],eri_val);
+  //if(eri_val == 0)
+  //  printf("a[0]: %d a[1]: %d a[2]: %d b[0]: %d b[1]: %d b[2]: %d c[0] %d c[1] %d c[2] %d d[0] %d d[1] %d d[2] %d value %f\n",a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],d[0],d[1],d[2],eri_val);
      //printf("a: %d b: %d c: %d d: %d eri_val %f\n",(a[0]+a[1]+a[2]),(b[0]+b[1]+b[2]),(c[0]+c[1]+c[2]),(d[0]+d[1]+d[2]),eri_val);
   free(x1);
   free(x2);
@@ -1327,7 +1306,6 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
         }
       }
     }
-  
     // print all energy values
     //for (int i=0; i<(norbs*norbs*norbs); i++) {
     //  outfile->Printf(" E[%i] is %f \n",i,E[i]);
@@ -1377,7 +1355,239 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
     //printf("%5i\n",new_nmax);
     //exit(0);
     norbs = new_nmax;
-
+}
+void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons) {
+    int eee = 0;
+    int eeo = 0;
+    int eoe = 0;
+    int eoo = 0;
+    int oee = 0;
+    int oeo = 0;
+    int ooe = 0;
+    int ooo = 0;
+    for (int i = 0; i < orbitalMax; i++) {
+        if ( MO[i][0]%2==0 ){
+            if ( MO[i][1]%2==0 ){
+                if( MO[i][2]%2==0 ){
+                   eee++;
+                } else {
+                   eeo++;
+                }
+            }else{
+                if( MO[i][2]%2==0 ){
+                   eoe++;
+                } else {
+                   eoo++;
+                }
+            }
+        } else {
+            if ( MO[i][1]%2==0 ){
+                if( MO[i][2]%2==0 ){
+                   oee++;
+                } else {
+                   oeo++;
+                }
+            }else{
+                if( MO[i][2]%2==0 ){
+                   ooe++;
+                } else {
+                   ooo++;
+                }
+            } 
+        }
+    } 
+    //printf("eee: %d \neeo: %d \neoe: %d \neoo: %d\n oee: %d\n oeo: %d\n ooe: %d\n ooo: %d\n",eee,eeo,eoe,eoo,oee,oeo,ooe,ooo);
+    nirrep_ = 8;
+    nsopi_ = (int*)malloc(nirrep_*sizeof(int));
+    nsopi_[0] = eee;
+    nsopi_[1] = eeo;
+    nsopi_[2] = eoe;
+    nsopi_[3] = eoo;
+    nsopi_[4] = oee;
+    nsopi_[5] = oeo;
+    nsopi_[6] = ooe;
+    nsopi_[7] = ooo;
+    int tmp = 0;
+    double tmp_energy = 0;
+    double max_energy = E[electrons/2];
+    int* tmp_swap = (int*)malloc(3*sizeof(int));
+    for(int i = 0; i < orbitalMax; i++){
+        if(MO[i][0]%2==0 && MO[i][1]%2==0 && MO[i][2]%2==0){
+           tmp_swap[0]=MO[tmp][0];
+           tmp_swap[1]=MO[tmp][1];
+           tmp_swap[2]=MO[tmp][2];
+           tmp_energy = E[tmp];
+           MO[tmp][0]=MO[i][0];
+           MO[tmp][1]=MO[i][1];
+           MO[tmp][2]=MO[i][2];
+           E[tmp] = E[i];
+           tmp++;
+           MO[i][0]=tmp_swap[0];
+           MO[i][1]=tmp_swap[1];
+           MO[i][2]=tmp_swap[2];
+           E[i]=tmp_energy;
+        }
+   
+    }
+    for(int i = 0; i < orbitalMax; i++){
+        if(MO[i][0]%2==0 && MO[i][1]%2==0 && MO[i][2]%2==1){
+           tmp_swap[0]=MO[tmp][0];
+           tmp_swap[1]=MO[tmp][1];
+           tmp_swap[2]=MO[tmp][2];
+           tmp_energy = E[tmp];
+           MO[tmp][0]=MO[i][0];
+           MO[tmp][1]=MO[i][1];
+           MO[tmp][2]=MO[i][2];
+           E[tmp] = E[i];
+           tmp++;
+           MO[i][0]=tmp_swap[0];
+           MO[i][1]=tmp_swap[1];
+           MO[i][2]=tmp_swap[2];
+           E[i]=tmp_energy;
+        }
+   
+    }
+    for(int i = 0; i < orbitalMax; i++){
+        if(MO[i][0]%2==0 && MO[i][1]%2==1 && MO[i][2]%2==0){
+           tmp_swap[0]=MO[tmp][0];
+           tmp_swap[1]=MO[tmp][1];
+           tmp_swap[2]=MO[tmp][2];
+           tmp_energy = E[tmp];
+           MO[tmp][0]=MO[i][0];
+           MO[tmp][1]=MO[i][1];
+           MO[tmp][2]=MO[i][2];
+           E[tmp] = E[i];
+           tmp++;
+           MO[i][0]=tmp_swap[0];
+           MO[i][1]=tmp_swap[1];
+           MO[i][2]=tmp_swap[2];
+           E[i]=tmp_energy;
+        }
+   
+    }
+    for(int i = 0; i < orbitalMax; i++){
+        if(MO[i][0]%2==0 && MO[i][1]%2==1 && MO[i][2]%2==1){
+           tmp_swap[0]=MO[tmp][0];
+           tmp_swap[1]=MO[tmp][1];
+           tmp_swap[2]=MO[tmp][2];
+           tmp_energy = E[tmp];
+           MO[tmp][0]=MO[i][0];
+           MO[tmp][1]=MO[i][1];
+           MO[tmp][2]=MO[i][2];
+           E[tmp] = E[i];
+           tmp++;
+           MO[i][0]=tmp_swap[0];
+           MO[i][1]=tmp_swap[1];
+           MO[i][2]=tmp_swap[2];
+           E[i]=tmp_energy;
+        }
+   
+    }
+    for(int i = 0; i < orbitalMax; i++){
+        if(MO[i][0]%2==1 && MO[i][1]%2==0 && MO[i][2]%2==0){
+           tmp_swap[0]=MO[tmp][0];
+           tmp_swap[1]=MO[tmp][1];
+           tmp_swap[2]=MO[tmp][2];
+           tmp_energy = E[tmp];
+           MO[tmp][0]=MO[i][0];
+           MO[tmp][1]=MO[i][1];
+           MO[tmp][2]=MO[i][2];
+           E[tmp] = E[i];
+           tmp++;
+           MO[i][0]=tmp_swap[0];
+           MO[i][1]=tmp_swap[1];
+           MO[i][2]=tmp_swap[2];
+           E[i]=tmp_energy;
+        }
+   
+    }
+    for(int i = 0; i < orbitalMax; i++){
+        if(MO[i][0]%2==1 && MO[i][1]%2==0 && MO[i][2]%2==1){
+           tmp_swap[0]=MO[tmp][0];
+           tmp_swap[1]=MO[tmp][1];
+           tmp_swap[2]=MO[tmp][2];
+           tmp_energy = E[tmp];
+           MO[tmp][0]=MO[i][0];
+           MO[tmp][1]=MO[i][1];
+           MO[tmp][2]=MO[i][2];
+           E[tmp] = E[i];
+           tmp++;
+           MO[i][0]=tmp_swap[0];
+           MO[i][1]=tmp_swap[1];
+           MO[i][2]=tmp_swap[2];
+           E[i]=tmp_energy;
+        }
+   
+    }
+    for(int i = 0; i < orbitalMax; i++){
+        if(MO[i][0]%2==1 && MO[i][1]%2==1 && MO[i][2]%2==0){
+           tmp_swap[0]=MO[tmp][0];
+           tmp_swap[1]=MO[tmp][1];
+           tmp_swap[2]=MO[tmp][2];
+           tmp_energy = E[tmp];
+           MO[tmp][0]=MO[i][0];
+           MO[tmp][1]=MO[i][1];
+           MO[tmp][2]=MO[i][2];
+           E[tmp] = E[i];
+           tmp++;
+           MO[i][0]=tmp_swap[0];
+           MO[i][1]=tmp_swap[1];
+           MO[i][2]=tmp_swap[2];
+           E[i]=tmp_energy;
+        }
+   
+    }
+    Eirrep_ = (int*)malloc(nirrep_*sizeof(int));
+    int offsetJ = 0;
+    int ecounter = 0;
+    for(int i = 0; i < nirrep_; i++){
+        for(int j = 0; j < nsopi_[i]; j++){
+            if(E[offsetJ + j] < max_energy && ecounter < electrons/2){
+                Eirrep_[i]++;
+                ecounter++;
+            }
+        }
+        offsetJ += nsopi_[i];
+    }
+    offsetJ = 0;
+    for(int i = 0; i < nirrep_; i++){
+        for(int j = 0; j < nsopi_[i]; j++){
+            if(E[offsetJ + j] == max_energy && ecounter < electrons/2){
+                Eirrep_[i]++;
+                ecounter++;
+            }
+        }
+        offsetJ += nsopi_[i];
+    }
+    //printf("max energy%f\n",max_energy);
+    for(int i = 0; i < nirrep_; i++){
+        //printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
+    }
+    offsetJ = 0;
+    for(int i = 0; i < nirrep_; i++){
+       for(int j = 0; j < nsopi_[i]; j++){
+          for(int k = j+1; k < nsopi_[i]; k++){
+             if(E[j+offsetJ]>E[k+offsetJ]){
+                tmp_swap[0] = MO[j+offsetJ][0];     
+                tmp_swap[1] = MO[j+offsetJ][1];     
+                tmp_swap[2] = MO[j+offsetJ][2];
+                tmp_energy = E[j+offsetJ];
+                MO[j+offsetJ][0] = MO[k+offsetJ][0];    
+                MO[j+offsetJ][1] = MO[k+offsetJ][1];    
+                MO[j+offsetJ][2] = MO[k+offsetJ][2];
+                E[j+offsetJ] = E[k+offsetJ];
+                MO[k+offsetJ][0] = tmp_swap[0];    
+                MO[k+offsetJ][1] = tmp_swap[1];    
+                MO[k+offsetJ][2] = tmp_swap[2]; 
+                E[k+offsetJ] = tmp_energy; 
+             }
+          }
+       }     
+       offsetJ += nsopi_[i];
+    }
+    for(int i = 0; i < orbitalMax; i++){
+       //printf("MO[%d][0]:%d\tMO[%d][1]:%d\tMO[%d][2]:%d energy: %f\n",i,MO[i][0],i,MO[i][1],i,MO[i][2],E[i]);
+    }
 }
 
 int * JelliumIntegrals::VEC_INT(int dim){
