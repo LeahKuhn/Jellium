@@ -777,10 +777,6 @@ double JelliumIntegrals::E0_Int(int dim, double *xa, double *w) {
 
 double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
   
-  int x = (a[0]+b[0]+c[0]+d[0])%2;
-  int y = (a[1]+b[1]+c[1]+d[1])%2;
-  int z = (a[2]+b[2]+c[2]+d[2])%2;
-
   //x1[0] = ax-bx, x1[1] = ax+bx
   int* x1 = (int *)malloc(3*sizeof(int));
   int* x2 = (int *)malloc(3*sizeof(int));
@@ -1564,7 +1560,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
     }
     //printf("max energy%f\n",max_energy);
     for(int i = 0; i < nirrep_; i++){
-        //printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
+        printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
     }
     offsetJ = 0;
     for(int i = 0; i < nirrep_; i++){
