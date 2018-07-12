@@ -27,7 +27,6 @@
  *
  * @END LICENSE
  */
-
 #include "psi4/psi4-dec.h"
 #include "psi4/libpsi4util/PsiOutStream.h"
 #include "psi4/liboptions/liboptions.h"
@@ -44,7 +43,6 @@
 #include <math.h>
 #include "psi4/pragma.h"
 #include"JelliumIntegrals.h"
-#include "diis_c.cc"
 #include "diis_c.h"
 #ifdef _OPENMP
     #include<omp.h>
@@ -133,7 +131,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         Sp[i][i] = 1.0;
     }
     }
-    std::shared_ptr<DIIS> diis (new DIIS(Jell->nsopi_[0]*Jell->nsopi_[0]));
+    std::shared_ptr<DIIS> diis (new DIIS(nso));
     // build core hamiltonian
     V->scale(nelectron); 
     h->add(V);
@@ -193,8 +191,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     int * tmp = (int*)malloc(5*sizeof(int));
     double dele = 0.0;
     double deld = 0.0;
+    bool dampening = false;
+    bool do_diis = false;
     do {
-    bool dampening = true;
 
         K->zero();
 // #pragma omp parallel for
@@ -252,14 +251,14 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
                     for (short r = 0; r < Jell->nsopi_[hr]; r++) {
                         short rr = r + offr;
-                        for (short s = r; s < Jell->nsopi_[hr]; s++) {
+                        for (short s = 0; s < Jell->nsopi_[hr]; s++) {
                             short ss = s + offr;
                             if(r==s){
                             myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
                             myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
                             } else {
-                            myJ += 2*d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
-                            myK += 2*d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
+                            myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
+                            myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
 }
                         }
                     }
@@ -353,14 +352,22 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         //            }
         //        }
 
-                   diis->WriteVector(&(Fprime->pointer()[0][0]));
+                   std::shared_ptr<Vector> tmp_F(new Vector(nso));
+                   int tmp_vec_offset = 0;
+                   for(int h = 0; h < Jell->nirrep_; h++){
+                      for(int i = 0; i < Jell->nsopi_[h]; i++){
+                         tmp_F->pointer()[i+tmp_vec_offset] = Fprime->pointer(h)[i][Jell->nsopi_[h]-1];
+                      }
+                      tmp_vec_offset += Jell->nsopi_[h];
+                   }
+                   diis->WriteVector(&(tmp_F->pointer()[0]));
 
                    std::shared_ptr<Matrix> FDSmSDF(new Matrix("FDS-SDF",Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
                    std::shared_ptr<Matrix> DS(new Matrix("DS",Jell->nirrep_,Jell->nsopi_, Jell->nsopi_));
                    DS->gemm(false,false,1.0,D,S,0.0);
                    FDSmSDF->gemm(false,false,1.0,Fprime,DS,0.0);
                    DS.reset();
-
+                   
                    std::shared_ptr<Matrix> SDF(FDSmSDF->transpose());
                    FDSmSDF->subtract(SDF);
 
@@ -374,18 +381,35 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    ShalfGradShalf->gemm(false,false,1.0,ShalfGrad,Shalf,0.0);
 
                    ShalfGrad.reset();
-
+                   std::shared_ptr<Vector> tmp_vec(new Vector(nso));
+                   tmp_vec_offset = 0;
+                   for(int h = 0; h < Jell->nirrep_; h++){
+                      for(int i = 0; i < Jell->nsopi_[h]; i++){
+                         tmp_vec->pointer()[i+tmp_vec_offset] = ShalfGradShalf->pointer(h)[i][Jell->nsopi_[h]-1];
+                         tmp_F->pointer()[i+tmp_vec_offset] = Fprime->pointer(h)[i][Jell->nsopi_[h]-1];
+                      }
+                      tmp_vec_offset += Jell->nsopi_[h];
+                   }
+                   //tmp_vec->print();
+                   //tmp_F->print();
+                   //Fprime->print();;
                    // We will use the RMS of the orbital gradient 
                    // to monitor convergence.
                    gnorm = ShalfGradShalf->rms();
-
                    // The DIIS manager will write the current error vector to disk.
-                   diis->WriteErrorVector(&(ShalfGradShalf->pointer()[0][0]));
-                   if(gnorm<0.1){
-                       diis->Extrapolate(&(Fprime->pointer(0)[0][0]));
-                       dampening = false;
-                       printf("do diis\n");
+                   diis->WriteErrorVector(&(tmp_vec->pointer()[0]));
+                   //if(iter>=2){
+                       diis->Extrapolate(&(tmp_F->pointer()[0]));
+                       //printf("do diis\n");
+                   //}
+                   tmp_vec_offset = 0;
+                   for(int h = 0; h < Jell->nirrep_; h++){
+                      for(int i = 0; i < Jell->nsopi_[h]; i++){
+                         Fprime->pointer(h)[i][Jell->nsopi_[h]-1] = tmp_F->pointer()[i+tmp_vec_offset];
+                      }
+                      tmp_vec_offset += Jell->nsopi_[h];
                    }
+                  
         deld = 0.0;
         for(int h = 0; h < Jell->nirrep_; h++){
         double ** d_p = D->pointer(h);
@@ -404,7 +428,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         outfile->Printf("    %6i%20.12lf%20.12lf%20.12lf\n", iter, new_energy, dele, deld);
         energy = new_energy;
         Fprime->diagonalize(Ca,Feval);
-
+        double damp = 0.03;
         //building density matrix
 
         //Dnew = (std::shared_ptr<Matrix>)(new Matrix(nso,nso));
@@ -429,15 +453,15 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                 for(int i = 0; i < Jell->Eirrep_[h]; ++i){
                     dum += c_p[mu][i] * c_p[nu][i];
                 }
-                if(fabs(dum-d_p[mu][nu])>0.02 && dampening){
-                    if(dum-d_p[mu][nu]<0){
-                       dnew_p[mu][nu] = d_p[mu][nu]-0.02;
-                    }else{
-                       dnew_p[mu][nu] = d_p[mu][nu]+0.02;
-                    }
-                }else {
+                //if(fabs(dum-d_p[mu][nu])>damp && dampening){
+                //    if(dum-d_p[mu][nu]<0){
+                //       dnew_p[mu][nu] = d_p[mu][nu]-damp;
+                //    }else{
+                //      dnew_p[mu][nu] = d_p[mu][nu]+damp;
+                //   }
+                //}else {
                 dnew_p[mu][nu] = dum;
-                }
+                //}
             }
         }
         }
@@ -445,7 +469,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
         iter++;
         if( iter > maxiter ) break;
-        printf("gnorm: %f\n",gnorm);
+        //printf("gnorm: %f\n",gnorm);
         }while(dele > e_convergence || deld > d_convergence);
 
         if ( iter > maxiter ) {

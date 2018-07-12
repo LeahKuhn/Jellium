@@ -39,7 +39,7 @@ namespace psi{
 DIIS::DIIS(int n) {
 
     dimdiis_           = n;
-    maxdiis_           = 8;
+    maxdiis_           = 6;
     diis_iter_         = 0;
     replace_diis_iter_ = 1;
     diisvec_           = (double*)malloc(sizeof(double)*(maxdiis_+1));

@@ -183,7 +183,7 @@ void JelliumIntegrals::compute() {
   //exit(1);
   PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
   double ** PQ_p = PQ->pointer();
-  printf("pdim %d\n",Pdim);
+  //printf("pdim %d\n",Pdim);
   Ke = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
   NucAttrac = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
   int complete = 0;
@@ -1560,7 +1560,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
     }
     //printf("max energy%f\n",max_energy);
     for(int i = 0; i < nirrep_; i++){
-        printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
+        //printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
     }
     offsetJ = 0;
     for(int i = 0; i < nirrep_; i++){
