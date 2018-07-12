@@ -131,7 +131,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         Sp[i][i] = 1.0;
     }
     }
-    std::shared_ptr<DIIS> diis (new DIIS(nso));
+    std::shared_ptr<DIIS> diis (new DIIS(nso*nso));
     // build core hamiltonian
     V->scale(nelectron); 
     h->add(V);
@@ -351,12 +351,14 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         //                }
         //            }
         //        }
-
-                   std::shared_ptr<Vector> tmp_F(new Vector(nso));
+                   std::shared_ptr<Vector> tmp_F(new Vector(nso*nso));
                    int tmp_vec_offset = 0;
                    for(int h = 0; h < Jell->nirrep_; h++){
                       for(int i = 0; i < Jell->nsopi_[h]; i++){
-                         tmp_F->pointer()[i+tmp_vec_offset] = Fprime->pointer(h)[i][Jell->nsopi_[h]-1];
+                         for(int j = 0; j < Jell->nsopi_[h]; j++){
+                            tmp_F->pointer()[tmp_vec_offset+j] = Fprime->pointer(h)[i][j];
+                         }
+                         tmp_vec_offset += nso;
                       }
                       tmp_vec_offset += Jell->nsopi_[h];
                    }
@@ -381,12 +383,15 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    ShalfGradShalf->gemm(false,false,1.0,ShalfGrad,Shalf,0.0);
 
                    ShalfGrad.reset();
-                   std::shared_ptr<Vector> tmp_vec(new Vector(nso));
+                   std::shared_ptr<Vector> tmp_vec(new Vector(nso*nso));
                    tmp_vec_offset = 0;
                    for(int h = 0; h < Jell->nirrep_; h++){
                       for(int i = 0; i < Jell->nsopi_[h]; i++){
-                         tmp_vec->pointer()[i+tmp_vec_offset] = ShalfGradShalf->pointer(h)[i][Jell->nsopi_[h]-1];
-                         tmp_F->pointer()[i+tmp_vec_offset] = Fprime->pointer(h)[i][Jell->nsopi_[h]-1];
+                         for(int j = 0; j < Jell->nsopi_[h]; j++){
+                         tmp_vec->pointer()[tmp_vec_offset+j] = ShalfGradShalf->pointer(h)[i][j];
+                         tmp_F->pointer()[tmp_vec_offset+j] = Fprime->pointer(h)[i][j];
+                         }
+                         tmp_vec_offset += nso;
                       }
                       tmp_vec_offset += Jell->nsopi_[h];
                    }
@@ -405,8 +410,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    tmp_vec_offset = 0;
                    for(int h = 0; h < Jell->nirrep_; h++){
                       for(int i = 0; i < Jell->nsopi_[h]; i++){
-                         Fprime->pointer(h)[i][Jell->nsopi_[h]-1] = tmp_F->pointer()[i+tmp_vec_offset];
-                      }
+                         for(int j = 0; j < Jell->nsopi_[h]; j++){
+                         Fprime->pointer(h)[i][j] = tmp_F->pointer()[tmp_vec_offset+j];
+                         }
+                         tmp_vec_offset += nso;
+                      } 
                       tmp_vec_offset += Jell->nsopi_[h];
                    }
                   

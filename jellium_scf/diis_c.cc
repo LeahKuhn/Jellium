@@ -28,7 +28,7 @@
 #include "diis_c.h"
 #include "psi4/libqt/qt.h"
 #include "psi4/libpsio/psio.hpp"
-
+#include <math.h>
 #include "psi4/psifiles.h"
 
 #include <string.h>
@@ -39,7 +39,7 @@ namespace psi{
 DIIS::DIIS(int n) {
 
     dimdiis_           = n;
-    maxdiis_           = 6;
+    maxdiis_           = 3;
     diis_iter_         = 0;
     replace_diis_iter_ = 1;
     diisvec_           = (double*)malloc(sizeof(double)*(maxdiis_+1));
@@ -58,7 +58,7 @@ bool DIIS::Threshold_Check(){
 	if(diis_iter_!=0 && diis_iter_!=1){
 		std::shared_ptr<PSIO> psio(new PSIO());
 		psio->open(PSIF_DCC_EVEC,PSIO_OPEN_OLD);
-		char * evector = (char*)malloc(1000*sizeof(char));
+		char * evector = (char*)malloc(1000000*sizeof(char));
 		for(int i = 0; i <= diis_iter_; i++){
                         sprintf(evector,"evector%i",i+1);
 			psio->read_entry(PSIF_DCC_EVEC,evector,(char*)tmp1_,dimdiis_*sizeof(double));
@@ -78,7 +78,7 @@ void DIIS::WriteVector(double * vector){
     // Name the entry in PSIF_DCC_OVEC according to the current
     // DIIS iteration.  If we already have maxdiis_ vectors, then
     // replace one.
-    char * oldvector = (char*)malloc(1000*sizeof(char));
+    char * oldvector = (char*)malloc(1000000*sizeof(char));
     if ( diis_iter_ <= maxdiis_ ){
        sprintf(oldvector,"oldvector%i",diis_iter_);
     }
@@ -106,7 +106,7 @@ void DIIS::WriteErrorVector(double * vector){
     // Name the entry in PSIF_DCC_EVEC according to the current
     // DIIS iteration.  If we already have maxdiis_ vectors, then
     // replace one.
-    char * evector = (char*)malloc(1000*sizeof(char));
+    char * evector = (char*)malloc(1000000*sizeof(char));
     if ( diis_iter_ <= maxdiis_ ){
        sprintf(evector,"evector%i",diis_iter_);
     }
@@ -145,7 +145,7 @@ void DIIS::Extrapolate(double * vector){
 
         memset((void*)vector,'\0',dimdiis_*sizeof(double));
 
-        char * oldvector = (char*)malloc(1000*sizeof(char));
+        char * oldvector = (char*)malloc(1000000*sizeof(char));
     
         std::shared_ptr<PSIO> psio(new PSIO());
         psio->open(PSIF_DCC_OVEC,PSIO_OPEN_OLD);
@@ -174,7 +174,7 @@ void DIIS::Extrapolate(double * vector){
         psio->open(PSIF_DCC_EVEC,PSIO_OPEN_OLD);
         int jmax   = 1;
         double max = -1.0e99;
-        char * evector   = (char*)malloc(1000*sizeof(char));
+        char * evector   = (char*)malloc(1000000*sizeof(char));
         for (int j = 1; j <= maxdiis_; j++){
             sprintf(evector,"evector%i",j);
             psio->read_entry(PSIF_DCC_EVEC,evector,(char*)tmp1_,dimdiis_*sizeof(double));
@@ -205,7 +205,7 @@ void DIIS::DIISCoefficients(int nvec){
     memset((void*)B,'\0',(nvec+1)*sizeof(double));
     B[nvec] = -1.;
 
-    char * evector = (char*)malloc(1000*sizeof(char));
+    char * evector = (char*)malloc(1000000*sizeof(char));
 
     std::shared_ptr<PSIO> psio(new PSIO());
     psio->open(PSIF_DCC_EVEC,PSIO_OPEN_OLD);
