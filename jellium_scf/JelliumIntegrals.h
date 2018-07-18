@@ -61,13 +61,15 @@ class JelliumIntegrals{
     int* nsopi_;
     int get_nmax();
     int nirrep_;
+    double* grid_points;
+    std::shared_ptr<Vector> sqrt_tensor;
+    std::shared_ptr<Vector> g_tensor;
+    int ** MO;
+    double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz);
   private:
     void compute();
     void Orderirrep(int &norbs, double *E, int **MO, int electrons);
-    std::shared_ptr<Vector> sqrt_tensor;
-    std::shared_ptr<Vector> g_tensor;
     double n_order_;
-    int ** MO;
     int electrons;
     int *** PQmap;
     int orbitalMax;
@@ -89,7 +91,6 @@ class JelliumIntegrals{
     //double ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap);
     double ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap);
     double ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap);
-    double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz);
     
     void OrderPsis3D(int &norbs, double *E, int **MO);
     int **MAT_INT(int dim1, int dim2);

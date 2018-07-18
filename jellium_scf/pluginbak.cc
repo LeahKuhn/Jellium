@@ -119,6 +119,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("\n");
 
     //build the core hamiltonian
+
+    int nmax = Jell->get_nmax();
     std::shared_ptr<Matrix> h = (std::shared_ptr<Matrix>)(new Matrix(T));
     std::shared_ptr<Matrix> Ca = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
     std::shared_ptr<Matrix> Shalf = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
@@ -491,6 +493,73 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         double fock_energy = D->vector_dot(K) / Lfac;
         outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
         outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
+    
+                   std::shared_ptr<Vector> D_vec(new Vector(nso*nso));
+                   D_vec->zero();
+                   int tmp_vec_offset = 0;
+                   for(int h = 0; h < Jell->nirrep_; h++){
+                      for(int i = 0; i < Jell->nsopi_[h]; i++){
+                         for(int j = 0; j < Jell->nsopi_[h]; j++){
+                         D_vec->pointer()[tmp_vec_offset+j] = D->pointer(h)[i][j];
+                         }
+                         tmp_vec_offset += nso;
+                      }
+                      tmp_vec_offset += Jell->nsopi_[h];
+                   }
+        int points = options.get_int("N_GRID_POINTS");
+        double tmp1 = 0.0; 
+        std::shared_ptr<Vector> p (new Vector(points*points*points));
+        double* g_p = Jell->g_tensor->pointer();
+        for(int x = 0; x < points; x++){
+            for(int y = 0; y < points; y++){
+                    double tmp = 0.0;
+                for(int z = 0; z < points; z++){
+                    tmp = 0.0; //original
+                    for(int mu = 0; mu < nso; mu++){
+                        int mux = Jell->MO[mu][0];
+                        int muy = Jell->MO[mu][1];
+                        int muz = Jell->MO[mu][2];
+                        for(int nu = 0; nu < nso; nu++){
+                            int nux = Jell->MO[nu][0];
+                            int nuy = Jell->MO[nu][1];
+                            int nuz = Jell->MO[nu][2];
+                            int px = abs(mux-nux);
+                            int py = abs(muy-nuy);
+                            int pz = abs(muz-nuz);
+                            int qx = mux+nux;
+                            int qy = muy+nuy;
+                            int qz = muz+nuz;
+                            double tmp2 = 0.0;
+                            
+                            tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+                            tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+                            tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+                            tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+                            tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+px*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
+                            tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
+                            tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
+                            tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
+                            //tmp += D_vec->pointer()[mu*nso+nu]*Jell->pq_int_new(points,mux,muy,muz,nux,nuy,nuz);
+                            tmp += tmp2 * D_vec->pointer()[mu*nso+nu] * Jell->sqrt_tensor->pointer()[x*points*points+y*points+z];
+                        }
+                    }
+                 // p->pointer()[x*points*points] = g_p[x*nso*nso+113*nso+113]; //original
+                    tmp1 += fabs(tmp);
+                    p->pointer()[x*points*points+y*points+z] = fabs(tmp);
+                }
+            }
+        }
+        outfile->Printf("x\ty\tz\td total: %f\n",tmp1);
+        for(int x = 0; x < points; x++){
+            for(int y = 0; y < points; y++){
+                //for(int z = 0; z < points; z++){
+                   //if(p->pointer()[x*points*points+y*points+z]>0.000001){
+                   outfile->Printf("%d\t%d\t%d\t%0.24f\n",x,y,p->pointer()[x*points*points+y*points]);
+                   //}
+                //}
+            }
+        }
+        
         return ref_wfn;
 
         // Typically you would build a new wavefunction and populate it with data

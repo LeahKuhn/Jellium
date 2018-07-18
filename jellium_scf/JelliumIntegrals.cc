@@ -105,7 +105,8 @@ void JelliumIntegrals::compute() {
 
   x   = (double *)malloc(n*sizeof(double));
   w   = (double *)malloc(n*sizeof(double));
-  
+  grid_points = (double*)malloc(n*sizeof(double)); 
+ 
   sig  = (int*)malloc(3*sizeof(int));
   lam  = (int*)malloc(3*sizeof(int));
 
@@ -125,17 +126,23 @@ void JelliumIntegrals::compute() {
   // This is also one of John Burkhardt's library functions
   tmp.rescale( a, b, n, x, w);
 
+  for(int i = 0; i < n; i++){
+      grid_points[i] = x[i];
+  }
   // build g tensor g[npq] * w[n]
   outfile->Printf("\n");
   outfile->Printf("    build g tensor................"); fflush(stdout);
-  g_tensor = std::shared_ptr<Vector>( new Vector(n * orbitalMax * orbitalMax));
+  g_tensor = std::shared_ptr<Vector>( new Vector(n * 2 * (nmax + 1) * 2 * (nmax + 1)));
   for (int pt = 0; pt < n; pt++) {
       double xval = x[pt];
-      for (int p = 0; p < orbitalMax; p++) {
-          for (int q = 0; q < orbitalMax; q++) {
-              g_tensor->pointer()[pt*orbitalMax*orbitalMax+p*orbitalMax+q] = g_pq(p, q, xval) * w[pt];
+      for (int p = 0; p <= nmax*2; p++) {
+          for (int q = 0; q <= nmax*2; q++) {
+              g_tensor->pointer()[pt*2*nmax*2*nmax+p*2*nmax+q] = g_pq(p, q, xval) * w[pt];
           }
       }
+  }
+  for( int i = 0; i < n;i++){
+     //outfile->Printf("%d\t%f\n",i,g_tensor->pointer()[i*nmax*nmax*4+2*nmax]/w[i]);
   }
   outfile->Printf("done.\n");
   // build sqrt(x*x+y*y+z*z)
@@ -1244,11 +1251,11 @@ double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int
     double tmp_gxgygz = 0.0;
     //double tmp_gxgy = 0.0;
     for (int i = 0; i < dim; i++){
-        double gx = g_p[i * orbitalMax * orbitalMax + px * orbitalMax + qx];
+        double gx = g_p[i * 2 * nmax * 2 * nmax + px * 2 * nmax + qx];
         for (int j = 0; j < dim; j++){
-            double gxgy = gx*g_p[j * orbitalMax * orbitalMax + py * orbitalMax + qy];
+            double gxgy = gx*g_p[j * 2 * nmax * 2 * nmax + py * 2 * nmax + qy];
             for (int k = 0; k < dim; k++){
-                double gxgygz = g_p[k * orbitalMax * orbitalMax + pz * orbitalMax + qz];
+                double gxgygz = g_p[k * 2 * nmax * 2 * nmax + pz * 2 * nmax + qz];
                 tmp_gxgygz += gxgygz * s_p[i*dim*dim + j*dim + k];
                 //printf("  sum %f  x %f  y %f  z %f\n",sum, x, y, z);
             }
@@ -1585,7 +1592,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
        offsetJ += nsopi_[i];
     }
     for(int i = 0; i < orbitalMax; i++){
-       //printf("MO[%d][0]:%d\tMO[%d][1]:%d\tMO[%d][2]:%d energy: %f\n",i,MO[i][0],i,MO[i][1],i,MO[i][2],E[i]);
+       printf("MO[%d][0]:%d\tMO[%d][1]:%d\tMO[%d][2]:%d energy: %f\n",i,MO[i][0],i,MO[i][1],i,MO[i][2],E[i]);
     }
 }
 
