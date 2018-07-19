@@ -95,6 +95,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
     // factor for box size ... coded to give <rho> = 1
     double Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
+    double boxlength = Lfac * M_PI;
 
     //grabbing one-electon integrals from mintshelper
     std::shared_ptr<JelliumIntegrals> Jell (new JelliumIntegrals(options));
@@ -493,7 +494,53 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         double fock_energy = D->vector_dot(K) / Lfac;
         outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
         outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
-    
+
+        int nx = 101;
+        int ny = 101;
+        int nz = 101;
+        double dx = boxlength / ( nx - 1 );
+        double dy = boxlength / ( ny - 1 );
+        double dz = boxlength / ( nz - 1 );
+
+        double z = 0.25 * boxlength;
+        for (int xid = 0; xid < nx; xid++) {
+            double x = xid * dx;
+            for (int yid = 0; yid < ny; yid++) {
+                double y = yid * dy;
+
+                double dum = 0.0;
+
+                int offset = 0;
+                for (int h = 0; h < Jell->nirrep_; h++) {
+                    double ** D_p = D->pointer(h);
+                    for(int mu = 0; mu < Jell->nsopi_[h]; mu++){
+                        int mux = Jell->MO[mu + offset][0];
+                        int muy = Jell->MO[mu + offset][1];
+                        int muz = Jell->MO[mu + offset][2];
+
+                        double psi_mu = sin(mux*M_PI*x/boxlength) * sin(muy*M_PI*y/boxlength) * sin(muz*M_PI*z/boxlength);
+
+                        for(int nu = 0; nu < Jell->nsopi_[h]; nu++){
+                            int nux = Jell->MO[nu + offset][0];
+                            int nuy = Jell->MO[nu + offset][1];
+                            int nuz = Jell->MO[nu + offset][2];
+
+                            double psi_nu = sin(nux*M_PI*x/boxlength) * sin(nuy*M_PI*y/boxlength) * sin(nuz*M_PI*z/boxlength);
+
+                            dum += D_p[mu][nu] * psi_mu * psi_nu;
+                        }
+                    }
+                    offset += Jell->nsopi_[h];
+                }
+                printf("%20.12lf %20.12lf %20.12lf\n",x,y,dum);
+
+
+            }
+            printf("\n");
+        }
+        printf("box length: %20.12lf\n",boxlength);
+   
+/* 
                    std::shared_ptr<Vector> D_vec(new Vector(nso*nso));
                    D_vec->zero();
                    int tmp_vec_offset = 0;
@@ -558,10 +605,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    //}
                 //}
             }
-        }
+        }*/
         
-        return ref_wfn;
-
         // Typically you would build a new wavefunction and populate it with data
         return ref_wfn;
     }
