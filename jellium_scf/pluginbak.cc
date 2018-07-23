@@ -495,20 +495,24 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
         outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
 
-        int nx = 101;
-        int ny = 101;
-        int nz = 101;
+outfile->Printf("TABLE--THEBOSS\n");
+        int points = options.get_int("N_GRID_POINTS");
+        double tmp_d = 0.0;
+        int nx = points;
+        int ny = points;
+        int nz = points;
         double dx = boxlength / ( nx - 1 );
         double dy = boxlength / ( ny - 1 );
         double dz = boxlength / ( nz - 1 );
 
-        double z = 0.25 * boxlength;
+        //double z = 0.25 * boxlength;
         for (int xid = 0; xid < nx; xid++) {
             double x = xid * dx;
             for (int yid = 0; yid < ny; yid++) {
                 double y = yid * dy;
-
                 double dum = 0.0;
+                for(int zid = 0; zid<nz;zid++){
+                double z = zid * dz;
 
                 int offset = 0;
                 for (int h = 0; h < Jell->nirrep_; h++) {
@@ -518,7 +522,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                         int muy = Jell->MO[mu + offset][1];
                         int muz = Jell->MO[mu + offset][2];
 
-                        double psi_mu = sin(mux*M_PI*x/boxlength) * sin(muy*M_PI*y/boxlength) * sin(muz*M_PI*z/boxlength);
+                        double psi_mu = sin(mux*M_PI*x/boxlength) * sin(muy*M_PI*y/boxlength) * sin(muz*M_PI*z/boxlength) * Jell->w[xid] * Jell->w[yid] * Jell->w[zid];
 
                         for(int nu = 0; nu < Jell->nsopi_[h]; nu++){
                             int nux = Jell->MO[nu + offset][0];
@@ -531,81 +535,89 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                         }
                     }
                     offset += Jell->nsopi_[h];
-                }
-                printf("%20.12lf %20.12lf %20.12lf\n",x,y,dum);
-
+                }}
+                outfile->Printf("%20.12lf %20.12lf %20.12lf\n",x,y,dum);
+                tmp_d += dum;
+                dum = 0.0;
 
             }
-            printf("\n");
+            //printf("\n");
         }
         printf("box length: %20.12lf\n",boxlength);
+        //printf("total: %20.12lf\n",tmp_d/(nelectron/(M_PI*M_PI)));
    
-/* 
-                   std::shared_ptr<Vector> D_vec(new Vector(nso*nso));
-                   D_vec->zero();
-                   int tmp_vec_offset = 0;
-                   for(int h = 0; h < Jell->nirrep_; h++){
-                      for(int i = 0; i < Jell->nsopi_[h]; i++){
-                         for(int j = 0; j < Jell->nsopi_[h]; j++){
-                         D_vec->pointer()[tmp_vec_offset+j] = D->pointer(h)[i][j];
-                         }
-                         tmp_vec_offset += nso;
-                      }
-                      tmp_vec_offset += Jell->nsopi_[h];
-                   }
-        int points = options.get_int("N_GRID_POINTS");
-        double tmp1 = 0.0; 
-        std::shared_ptr<Vector> p (new Vector(points*points*points));
-        double* g_p = Jell->g_tensor->pointer();
-        for(int x = 0; x < points; x++){
-            for(int y = 0; y < points; y++){
-                    double tmp = 0.0;
-                for(int z = 0; z < points; z++){
-                    tmp = 0.0; //original
-                    for(int mu = 0; mu < nso; mu++){
-                        int mux = Jell->MO[mu][0];
-                        int muy = Jell->MO[mu][1];
-                        int muz = Jell->MO[mu][2];
-                        for(int nu = 0; nu < nso; nu++){
-                            int nux = Jell->MO[nu][0];
-                            int nuy = Jell->MO[nu][1];
-                            int nuz = Jell->MO[nu][2];
-                            int px = abs(mux-nux);
-                            int py = abs(muy-nuy);
-                            int pz = abs(muz-nuz);
-                            int qx = mux+nux;
-                            int qy = muy+nuy;
-                            int qz = muz+nuz;
-                            double tmp2 = 0.0;
-                            
-                            tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-                            tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-                            tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-                            tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-                            tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+px*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
-                            tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
-                            tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
-                            tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
-                            //tmp += D_vec->pointer()[mu*nso+nu]*Jell->pq_int_new(points,mux,muy,muz,nux,nuy,nuz);
-                            tmp += tmp2 * D_vec->pointer()[mu*nso+nu] * Jell->sqrt_tensor->pointer()[x*points*points+y*points+z];
-                        }
-                    }
-                 // p->pointer()[x*points*points] = g_p[x*nso*nso+113*nso+113]; //original
-                    tmp1 += fabs(tmp);
-                    p->pointer()[x*points*points+y*points+z] = fabs(tmp);
-                }
-            }
-        }
-        outfile->Printf("x\ty\tz\td total: %f\n",tmp1);
-        for(int x = 0; x < points; x++){
-            for(int y = 0; y < points; y++){
-                //for(int z = 0; z < points; z++){
-                   //if(p->pointer()[x*points*points+y*points+z]>0.000001){
-                   outfile->Printf("%d\t%d\t%d\t%0.24f\n",x,y,p->pointer()[x*points*points+y*points]);
-                   //}
-                //}
-            }
-        }*/
+ 
+        //           std::shared_ptr<Vector> D_vec(new Vector(nso*nso));
+        //           D_vec->zero();
+        //           int tmp_vec_offset = 0;
+        //           for(int h = 0; h < Jell->nirrep_; h++){
+        //              for(int i = 0; i < Jell->nsopi_[h]; i++){
+        //                 for(int j = 0; j < Jell->nsopi_[h]; j++){
+        //                 D_vec->pointer()[tmp_vec_offset+j] = D->pointer(h)[i][j];
+        //                 }
+        //                 tmp_vec_offset += nso;
+        //              }
+        //              tmp_vec_offset += Jell->nsopi_[h];
+        //           }
+        //outfile->Printf("TABLE--DANNY\n");
+        //double tmp1 = 0.0; 
+        //std::shared_ptr<Vector> p (new Vector(points*points*points));
+        //double* g_p = Jell->g_tensor->pointer();
+        //for(int x = 0; x < points; x++){
+        //    for(int y = 0; y < points; y++){
+        //            double tmp = 0.0;
+        //        for(int z = 0; z < points; z++){
+        //            tmp = 0.0; //original
+        //            int offset = 0;
+        //            for(int h = 0; h < Jell->nirrep_;h++){
+        //            double ** D_p = D->pointer(h);
+        //            for(int mu = 0; mu < Jell->nsopi_[h]; mu++){
+        //                int mux = Jell->MO[mu+offset][0];
+        //                int muy = Jell->MO[mu+offset][1];
+        //                int muz = Jell->MO[mu+offset][2];
+        //                for(int nu = 0; nu < Jell->nsopi_[h]; nu++){
+        //                    int nux = Jell->MO[nu+offset][0];
+        //                    int nuy = Jell->MO[nu+offset][1];
+        //                    int nuz = Jell->MO[nu+offset][2];
+        //                    int px = abs(mux-nux);
+        //                    int py = abs(muy-nuy);
+        //                    int pz = abs(muz-nuz);
+        //                    int qx = mux+nux;
+        //                    int qy = muy+nuy;
+        //                    int qz = muz+nuz;
+        //                    double tmp2 = 0.0;
+        //                    
+        //                    tmp2 += g_p[x*nmax*2*nmax*2+(mux-1)*nmax*2+(mux-1)]*g_p[y*nmax*2*nmax*2+(muy-1)*nmax*2+(muy-1)]*g_p[z*nmax*2*nmax*2+(muz-1)*nmax*2+(muz-1)]/Jell->w[x]/Jell->w[y]/Jell->w[z];
+        //                    //tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+        //                    //tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
+        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
+        //                    //tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
+        //                    //tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
+        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
+        //                    //tmp += D_vec->pointer()[mu*nso+nu]*Jell->pq_int_new(points,mux,muy,muz,nux,nuy,nuz);
+        //                    tmp += tmp2 * D_p[mu][nu];// / Jell->sqrt_tensor->pointer()[x*points*points+y*points+z];
+        //                }
+        //            }
+        //         // p->pointer()[x*points*points] = g_p[x*nso*nso+113*nso+113]; //original
+        //            tmp1 += fabs(tmp);
+        //            p->pointer()[x*points*points+y*points] = fabs(tmp);
+        //            offset += Jell->nsopi_[h];
+        //        }
+        //        }
+        //    }
+        //}
+        //outfile->Printf("x\ty\tz\td total: %f\n",tmp1);
+        //for(int x = 0; x < points; x++){
+        //    for(int y = 0; y < points; y++){
+        //        //for(int z = 0; z < points; z++){
+        //           //if(p->pointer()[x*points*points+y*points+z]>0.000001){
+        //           outfile->Printf("%d\t%d\t%d\t%0.24f\n",x,y,p->pointer()[x*points*points+y*points]);
+        //           //}
+        //        //}
+        //    }
+        //}
         
         // Typically you would build a new wavefunction and populate it with data
         return ref_wfn;

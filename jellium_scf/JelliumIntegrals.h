@@ -65,6 +65,7 @@ class JelliumIntegrals{
     std::shared_ptr<Vector> sqrt_tensor;
     std::shared_ptr<Vector> g_tensor;
     int ** MO;
+    double* w;
     double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz);
   private:
     void compute();

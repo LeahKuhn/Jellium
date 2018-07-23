@@ -100,7 +100,7 @@ void JelliumIntegrals::compute() {
   double a = 0.0;
   double b = 1.0;
   int n = options_.get_int("N_GRID_POINTS");
-  double *x, *w;
+  double *x;
   int *mu, *nu, *sig, *lam;
 
   x   = (double *)malloc(n*sizeof(double));
@@ -127,7 +127,7 @@ void JelliumIntegrals::compute() {
   tmp.rescale( a, b, n, x, w);
 
   for(int i = 0; i < n; i++){
-      grid_points[i] = x[i];
+    //  printf("weight %d\t%f\n",i,w[i]);
   }
   // build g tensor g[npq] * w[n]
   outfile->Printf("\n");
@@ -142,7 +142,7 @@ void JelliumIntegrals::compute() {
       }
   }
   for( int i = 0; i < n;i++){
-     //outfile->Printf("%d\t%f\n",i,g_tensor->pointer()[i*nmax*nmax*4+2*nmax]/w[i]);
+     //outfile->Printf("%d\t%f\n",i,g_tensor->pointer()[i*nmax*nmax*4+2*nmax*2]);
   }
   outfile->Printf("done.\n");
   // build sqrt(x*x+y*y+z*z)
@@ -510,7 +510,7 @@ void JelliumIntegrals::compute() {
   // Print to file
   //fprintf(selffp, "  %17.14f\n",selfval); 
   free(x);
-  free(w);
+  //free(w);
   //free(mu);
   //free(nu);
 
@@ -1240,7 +1240,6 @@ double JelliumIntegrals::pq_int(int dim, double *xa, double *w, int px, int py, 
     return (8./pi)*sum;
   }
 }
-
 double JelliumIntegrals::pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz) {
     //if (px<0 || qx<0 || py<0 || qy<0 || pz<0 || qz<0){
     //    return 0.;
