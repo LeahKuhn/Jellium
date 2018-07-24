@@ -105,7 +105,7 @@ void JelliumIntegrals::compute() {
 
   x   = (double *)malloc(n*sizeof(double));
   w   = (double *)malloc(n*sizeof(double));
-  grid_points = (double*)malloc(n*sizeof(double)); 
+  grid_points = x; 
  
   sig  = (int*)malloc(3*sizeof(int));
   lam  = (int*)malloc(3*sizeof(int));
@@ -509,7 +509,7 @@ void JelliumIntegrals::compute() {
   selfval = E0_Int(n, x, w);
   // Print to file
   //fprintf(selffp, "  %17.14f\n",selfval); 
-  free(x);
+  //free(x);
   //free(w);
   //free(mu);
   //free(nu);

@@ -507,12 +507,13 @@ outfile->Printf("TABLE--THEBOSS\n");
 
         //double z = 0.25 * boxlength;
         for (int xid = 0; xid < nx; xid++) {
-            double x = xid * dx;
+            printf("grid %f\n",Jell->grid_points[xid]);
+            double x = Jell->grid_points[xid];
             for (int yid = 0; yid < ny; yid++) {
-                double y = yid * dy;
+                double y = Jell->grid_points[yid];
                 double dum = 0.0;
                 for(int zid = 0; zid<nz;zid++){
-                double z = zid * dz;
+                double z = Jell->grid_points[zid];
 
                 int offset = 0;
                 for (int h = 0; h < Jell->nirrep_; h++) {
@@ -522,14 +523,14 @@ outfile->Printf("TABLE--THEBOSS\n");
                         int muy = Jell->MO[mu + offset][1];
                         int muz = Jell->MO[mu + offset][2];
 
-                        double psi_mu = sin(mux*M_PI*x/boxlength) * sin(muy*M_PI*y/boxlength) * sin(muz*M_PI*z/boxlength) * Jell->w[xid] * Jell->w[yid] * Jell->w[zid];
+                        double psi_mu = sin(mux*M_PI*x) * sin(muy*M_PI*y) * sin(muz*M_PI*z) * Jell->w[xid] * Jell->w[yid] * Jell->w[zid];
 
                         for(int nu = 0; nu < Jell->nsopi_[h]; nu++){
                             int nux = Jell->MO[nu + offset][0];
                             int nuy = Jell->MO[nu + offset][1];
                             int nuz = Jell->MO[nu + offset][2];
 
-                            double psi_nu = sin(nux*M_PI*x/boxlength) * sin(nuy*M_PI*y/boxlength) * sin(nuz*M_PI*z/boxlength);
+                            double psi_nu = sin(nux*M_PI*x) * sin(nuy*M_PI*y) * sin(nuz*M_PI*z);
 
                             dum += D_p[mu][nu] * psi_mu * psi_nu;
                         }
@@ -544,7 +545,7 @@ outfile->Printf("TABLE--THEBOSS\n");
             //printf("\n");
         }
         printf("box length: %20.12lf\n",boxlength);
-        //printf("total: %20.12lf\n",tmp_d/(nelectron/(M_PI*M_PI)));
+        //printf("total: %20.12lf\n",tmp_d);
    
  
         //           std::shared_ptr<Vector> D_vec(new Vector(nso*nso));
