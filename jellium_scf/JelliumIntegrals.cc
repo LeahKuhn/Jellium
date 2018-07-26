@@ -633,32 +633,57 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
        return 0.0;
     }
     Vab = 0.0;
- 
+    int P, Q;
+    double ** PQ_p = PQ->pointer(); 
     //make sure to check that these integrals are correct
 
     //    Cos[px x1] Cos[py y1] Cos[pz z1]
-    Vab  += pq_int_new(dim, px, py, pz,  0,  0,  0);
+    //Vab  += pq_int_new(dim, px, py, pz,  0,  0,  0);
+    P = PQmap[px][py][pz];
+    Q = PQmap[0][0][0];
+    Vab += PQ_p[P][Q];
          
     // -  Cos[qx x1] Cos[py y1] Cos[pz z1]
-    Vab  -= pq_int_new(dim,  0, py, pz, qx,  0,  0);
+    //Vab  -= pq_int_new(dim,  0, py, pz, qx,  0,  0);
+    P = PQmap[0][py][pz];
+    Q = PQmap[qx][0][0];
+    Vab -= PQ_p[P][Q];
          
     // -  Cos[px x1] Cos[qy y1] Cos[pz z1]
-    Vab  -= pq_int_new(dim, px,  0, pz,  0, qy,  0);
+    //Vab  -= pq_int_new(dim, px,  0, pz,  0, qy,  0);
+    P = PQmap[px][0][pz];
+    Q = PQmap[0][qy][0];
+    Vab -= PQ_p[P][Q];
          
     // +  Cos[qx x1] Cos[qy y1] Cos[pz z1]
-    Vab  += pq_int_new(dim,  0,  0, pz, qx, qy,  0);
+    //Vab  += pq_int_new(dim,  0,  0, pz, qx, qy,  0);
+    P = PQmap[0][0][pz];
+    Q = PQmap[qx][qy][0];
+    Vab += PQ_p[P][Q];
          
     // - Cos[px x1] Cos[py y1] Cos[qz z1]  
-    Vab  -= pq_int_new(dim, px, py,  0,  0,  0, qz);
+    //Vab  -= pq_int_new(dim, px, py,  0,  0,  0, qz);
+    P = PQmap[px][py][0];
+    Q = PQmap[0][0][qz];
+    Vab -= PQ_p[P][Q];
          
     // + Cos[qx x1] Cos[py y1] Cos[qz z1] 
-    Vab  += pq_int_new(dim,  0, py,  0, qx,  0, qz);
+    //Vab  += pq_int_new(dim,  0, py,  0, qx,  0, qz);
+    P = PQmap[0][py][0];
+    Q = PQmap[qx][0][qz];
+    Vab += PQ_p[P][Q];
          
     // +  Cos[px x1] Cos[qy y1] Cos[qz z1]
-    Vab  += pq_int_new(dim, px,  0,  0,  0, qy, qz);
+    //Vab  += pq_int_new(dim, px,  0,  0,  0, qy, qz);
+    P = PQmap[px][0][0];
+    Q = PQmap[0][qy][qz];
+    Vab += PQ_p[P][Q];
          
     // - Cos[qx x1] Cos[qy y1] Cos[qz z1]
-    Vab  -= pq_int_new(dim,  0,  0,  0, qx, qy, qz);
+    //Vab  -= pq_int_new(dim,  0,  0,  0, qx, qy, qz);
+    P = PQmap[0][0][0];
+    Q = PQmap[qx][qy][qz];
+    Vab -= PQ_p[P][Q];
 
             //if(px != py && py != pz && px != pz && px%2==0 && pz%2==0 && py%2==0){ printf("three different even\t : Vab %f",Vab);
             // if((mu[0] == mu[1] && mu[1] != mu[2] && mu[0]%2==0 && mu[2]%2==0) || (mu[0] != mu[1] && mu[1] == mu[2] && mu[0]%2==0 && mu[2]%2==0) || (mu[0] == mu[2] && mu[1] != mu[2] && mu[1]%2==0 && mu[2]%2==0)) printf("A1g + Eg\t");
