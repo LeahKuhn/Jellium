@@ -109,6 +109,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     V->scale(1.0/Lfac);
 
 
+
     // print some information about this computation
     outfile->Printf("\n");
     outfile->Printf("    ==> Hartree-Fock <==\n");
@@ -133,6 +134,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         Shalfp[i][i] = 1.0;
         Sp[i][i] = 1.0;
     }
+        printf("%d\n",Jell->nsopi_[h]);
     }
     std::shared_ptr<DIIS> diis (new DIIS(nso*nso));
     // build core hamiltonian
@@ -145,6 +147,10 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     // eigenvectors / eigenvalues of fock matrix
     std::shared_ptr<Vector> Feval (new Vector(Jell->nirrep_,Jell->nsopi_));
     
+    //ground state density and fock matrix
+    std::shared_ptr<Matrix> D_ground = (std::shared_ptr<Matrix>)(new Matrix(h));
+    std::shared_ptr<Matrix> F_ground = (std::shared_ptr<Matrix>)(new Matrix(h));
+
     // diagonalize core hamiltonian, get orbitals
     F->diagonalize(Ca,Feval);
     // build density matrix core hamiltonian
@@ -257,6 +263,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                         for (short s = 0; s < Jell->nsopi_[hr]; s++) {
                             short ss = s + offr;
                             if(r==s){
+                            //printf("p %d q %d r %d s %d \t%f\n",pp,qq,rr,ss,Jell->ERI_int(pp,qq,rr,ss));
                             myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
                             myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
                             } else {
@@ -478,6 +485,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         }
         D->copy(Dnew);
 
+        //TODO Make these not occur every loop just for quick implementation
+        D_ground->copy(D);
+        F_ground->copy(Fprime);
+        
+
         iter++;
         if( iter > maxiter ) break;
         //printf("gnorm: %f\n",gnorm);
@@ -495,7 +507,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
         outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
 
-outfile->Printf("TABLE--THEBOSS\n");
+outfile->Printf("Ground state density\n");
         int points = options.get_int("N_GRID_POINTS");
         double tmp_d = 0.0;
         int nx = points;
@@ -545,80 +557,20 @@ outfile->Printf("TABLE--THEBOSS\n");
             //printf("\n");
         }
         printf("box length: %20.12lf\n",boxlength);
-        //printf("total: %20.12lf\n",tmp_d);
+        printf("total: %20.12lf\n",tmp_d);
    
- 
-        //           std::shared_ptr<Vector> D_vec(new Vector(nso*nso));
-        //           D_vec->zero();
-        //           int tmp_vec_offset = 0;
-        //           for(int h = 0; h < Jell->nirrep_; h++){
-        //              for(int i = 0; i < Jell->nsopi_[h]; i++){
-        //                 for(int j = 0; j < Jell->nsopi_[h]; j++){
-        //                 D_vec->pointer()[tmp_vec_offset+j] = D->pointer(h)[i][j];
-        //                 }
-        //                 tmp_vec_offset += nso;
-        //              }
-        //              tmp_vec_offset += Jell->nsopi_[h];
-        //           }
-        //outfile->Printf("TABLE--DANNY\n");
-        //double tmp1 = 0.0; 
-        //std::shared_ptr<Vector> p (new Vector(points*points*points));
-        //double* g_p = Jell->g_tensor->pointer();
-        //for(int x = 0; x < points; x++){
-        //    for(int y = 0; y < points; y++){
-        //            double tmp = 0.0;
-        //        for(int z = 0; z < points; z++){
-        //            tmp = 0.0; //original
-        //            int offset = 0;
-        //            for(int h = 0; h < Jell->nirrep_;h++){
-        //            double ** D_p = D->pointer(h);
-        //            for(int mu = 0; mu < Jell->nsopi_[h]; mu++){
-        //                int mux = Jell->MO[mu+offset][0];
-        //                int muy = Jell->MO[mu+offset][1];
-        //                int muz = Jell->MO[mu+offset][2];
-        //                for(int nu = 0; nu < Jell->nsopi_[h]; nu++){
-        //                    int nux = Jell->MO[nu+offset][0];
-        //                    int nuy = Jell->MO[nu+offset][1];
-        //                    int nuz = Jell->MO[nu+offset][2];
-        //                    int px = abs(mux-nux);
-        //                    int py = abs(muy-nuy);
-        //                    int pz = abs(muz-nuz);
-        //                    int qx = mux+nux;
-        //                    int qy = muy+nuy;
-        //                    int qz = muz+nuz;
-        //                    double tmp2 = 0.0;
-        //                    
-        //                    tmp2 += g_p[x*nmax*2*nmax*2+(mux-1)*nmax*2+(mux-1)]*g_p[y*nmax*2*nmax*2+(muy-1)*nmax*2+(muy-1)]*g_p[z*nmax*2*nmax*2+(muz-1)*nmax*2+(muz-1)]/Jell->w[x]/Jell->w[y]/Jell->w[z];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp += D_vec->pointer()[mu*nso+nu]*Jell->pq_int_new(points,mux,muy,muz,nux,nuy,nuz);
-        //                    tmp += tmp2 * D_p[mu][nu];// / Jell->sqrt_tensor->pointer()[x*points*points+y*points+z];
-        //                }
-        //            }
-        //         // p->pointer()[x*points*points] = g_p[x*nso*nso+113*nso+113]; //original
-        //            tmp1 += fabs(tmp);
-        //            p->pointer()[x*points*points+y*points] = fabs(tmp);
-        //            offset += Jell->nsopi_[h];
-        //        }
-        //        }
-        //    }
-        //}
-        //outfile->Printf("x\ty\tz\td total: %f\n",tmp1);
-        //for(int x = 0; x < points; x++){
-        //    for(int y = 0; y < points; y++){
-        //        //for(int z = 0; z < points; z++){
-        //           //if(p->pointer()[x*points*points+y*points+z]>0.000001){
-        //           outfile->Printf("%d\t%d\t%d\t%0.24f\n",x,y,p->pointer()[x*points*points+y*points]);
-        //           //}
-        //        //}
-        //    }
-        //}
+ 	printf("Starting RT-TDHF\n");
+        
+        //To evaluate the commutator relation -i[F,D] 
+        std::shared_ptr<Matrix> Density_left(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> Density_right(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> Density_new(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        Density_right->gemm('n','n',1,D_ground,F_ground,1);
+        Density_left->gemm('n','n',1,F_ground,D_ground,1);
+        
+        Density_new->copy(Density_right);
+        Density_new->subtract(Density_left);
+        Density_new->print();
         
         // Typically you would build a new wavefunction and populate it with data
         return ref_wfn;
