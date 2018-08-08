@@ -113,6 +113,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     V->scale(1.0/Lfac);
 
 
+
     // print some information about this computation
     outfile->Printf("\n");
     outfile->Printf("    ==> Hartree-Fock <==\n");
@@ -137,6 +138,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         Shalfp[i][i] = 1.0;
         Sp[i][i] = 1.0;
     }
+        printf("%d\n",Jell->nsopi_[h]);
     }
     std::shared_ptr<DIIS> diis (new DIIS(nso*nso));
     // build core hamiltonian
@@ -149,6 +151,10 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     // eigenvectors / eigenvalues of fock matrix
     std::shared_ptr<Vector> Feval (new Vector(Jell->nirrep_,Jell->nsopi_));
     
+    //ground state density and fock matrix
+    std::shared_ptr<Matrix> D_ground = (std::shared_ptr<Matrix>)(new Matrix(h));
+    std::shared_ptr<Matrix> F_ground = (std::shared_ptr<Matrix>)(new Matrix(h));
+
     // diagonalize core hamiltonian, get orbitals
     F->diagonalize(Ca,Feval);
     // build density matrix core hamiltonian
@@ -262,6 +268,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                         for (short s = 0; s < Jell->nsopi_[hr]; s++) {
                             short ss = s + offr;
                             if(r==s){
+                            //printf("p %d q %d r %d s %d \t%f\n",pp,qq,rr,ss,Jell->ERI_int(pp,qq,rr,ss));
                             myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
                             myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
                             } else {
@@ -483,6 +490,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         }
         D->copy(Dnew);
 
+        //TODO Make these not occur every loop just for quick implementation
+        D_ground->copy(D);
+        F_ground->copy(Fprime);
+        
+
         iter++;
         if( iter > maxiter ) break;
         //printf("gnorm: %f\n",gnorm);
@@ -500,7 +512,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
         outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
 
-outfile->Printf("TABLE--THEBOSS\n");
+outfile->Printf("Ground state density\n");
         int points = options.get_int("N_GRID_POINTS");
         double tmp_d = 0.0;
         int nx = points;
@@ -554,6 +566,19 @@ outfile->Printf("TABLE--THEBOSS\n");
       
         double time_length = options.get_double("TIME_LENGTH");
 	double time_step = options.get_double("TIME_STEP");
+   
+ 	printf("Starting RT-TDHF\n");
+        
+        //To evaluate the commutator relation -i[F,D] 
+        std::shared_ptr<Matrix> Density_left(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> Density_right(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> Density_new(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        Density_right->gemm('n','n',1,D_ground,F_ground,1);
+        Density_left->gemm('n','n',1,F_ground,D_ground,1);
+        
+        Density_new->copy(Density_right);
+        Density_new->subtract(Density_left);
+        Density_new->print();
         
         //do the ground state first
         	
