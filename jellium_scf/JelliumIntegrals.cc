@@ -1571,6 +1571,9 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
     int offsetJ = 0;
     int ecounter = 0;
     for(int i = 0; i < nirrep_; i++){
+        Eirrep_[i]=0;
+    }
+    for(int i = 0; i < nirrep_; i++){
         for(int j = 0; j < nsopi_[i]; j++){
             if(E[offsetJ + j] < max_energy && ecounter < electrons/2){
                 Eirrep_[i]++;
@@ -1591,7 +1594,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
     }
     //printf("max energy%f\n",max_energy);
     for(int i = 0; i < nirrep_; i++){
-        //printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
+        printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
     }
     offsetJ = 0;
     for(int i = 0; i < nirrep_; i++){

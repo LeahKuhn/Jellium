@@ -67,6 +67,10 @@ int read_options(std::string name, Options& options)
         options.add_int("N_BASIS_FUNCTIONS", 26);
         /*- The length of the box -*/
         options.add_double("LENGTH", M_PI);
+	/*- The time in femtoseconds for the pulse -*/
+	options.add_double("TIME_LENGTH", 100);
+	/*- The time step in femtoseconds -*/
+	options.add_double("TIME_STEP", 0.01);
     }
 
     return true;
@@ -158,6 +162,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             double dum = 0.0;
             //TODO: pretty sure that this is wrong
             for(int i = 0; i < Jell->Eirrep_[h]; ++i){
+                //printf("%d %d %d \n",Jell->Eirrep_[h],nu,i);
                 dum += c_p[mu][i] * c_p[nu][i];
             }
             d_p[mu][nu] = dum;
@@ -546,83 +551,35 @@ outfile->Printf("TABLE--THEBOSS\n");
         }
         printf("box length: %20.12lf\n",boxlength);
         //printf("total: %20.12lf\n",tmp_d);
-   
- 
-        //           std::shared_ptr<Vector> D_vec(new Vector(nso*nso));
-        //           D_vec->zero();
-        //           int tmp_vec_offset = 0;
-        //           for(int h = 0; h < Jell->nirrep_; h++){
-        //              for(int i = 0; i < Jell->nsopi_[h]; i++){
-        //                 for(int j = 0; j < Jell->nsopi_[h]; j++){
-        //                 D_vec->pointer()[tmp_vec_offset+j] = D->pointer(h)[i][j];
-        //                 }
-        //                 tmp_vec_offset += nso;
-        //              }
-        //              tmp_vec_offset += Jell->nsopi_[h];
-        //           }
-        //outfile->Printf("TABLE--DANNY\n");
-        //double tmp1 = 0.0; 
-        //std::shared_ptr<Vector> p (new Vector(points*points*points));
-        //double* g_p = Jell->g_tensor->pointer();
-        //for(int x = 0; x < points; x++){
-        //    for(int y = 0; y < points; y++){
-        //            double tmp = 0.0;
-        //        for(int z = 0; z < points; z++){
-        //            tmp = 0.0; //original
-        //            int offset = 0;
-        //            for(int h = 0; h < Jell->nirrep_;h++){
-        //            double ** D_p = D->pointer(h);
-        //            for(int mu = 0; mu < Jell->nsopi_[h]; mu++){
-        //                int mux = Jell->MO[mu+offset][0];
-        //                int muy = Jell->MO[mu+offset][1];
-        //                int muz = Jell->MO[mu+offset][2];
-        //                for(int nu = 0; nu < Jell->nsopi_[h]; nu++){
-        //                    int nux = Jell->MO[nu+offset][0];
-        //                    int nuy = Jell->MO[nu+offset][1];
-        //                    int nuz = Jell->MO[nu+offset][2];
-        //                    int px = abs(mux-nux);
-        //                    int py = abs(muy-nuy);
-        //                    int pz = abs(muz-nuz);
-        //                    int qx = mux+nux;
-        //                    int qy = muy+nuy;
-        //                    int qz = muz+nuz;
-        //                    double tmp2 = 0.0;
-        //                    
-        //                    tmp2 += g_p[x*nmax*2*nmax*2+(mux-1)*nmax*2+(mux-1)]*g_p[y*nmax*2*nmax*2+(muy-1)*nmax*2+(muy-1)]*g_p[z*nmax*2*nmax*2+(muz-1)*nmax*2+(muz-1)]/Jell->w[x]/Jell->w[y]/Jell->w[z];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+pz*nmax*2];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+py*nmax*2]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp2 += g_p[x*nmax*2*nmax*2+px*nmax*2]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp2 -= g_p[x*nmax*2*nmax*2+qx]*g_p[y*nmax*2*nmax*2+qy]*g_p[z*nmax*2*nmax*2+qz];
-        //                    //tmp += D_vec->pointer()[mu*nso+nu]*Jell->pq_int_new(points,mux,muy,muz,nux,nuy,nuz);
-        //                    tmp += tmp2 * D_p[mu][nu];// / Jell->sqrt_tensor->pointer()[x*points*points+y*points+z];
-        //                }
-        //            }
-        //         // p->pointer()[x*points*points] = g_p[x*nso*nso+113*nso+113]; //original
-        //            tmp1 += fabs(tmp);
-        //            p->pointer()[x*points*points+y*points] = fabs(tmp);
-        //            offset += Jell->nsopi_[h];
-        //        }
-        //        }
-        //    }
-        //}
-        //outfile->Printf("x\ty\tz\td total: %f\n",tmp1);
-        //for(int x = 0; x < points; x++){
-        //    for(int y = 0; y < points; y++){
-        //        //for(int z = 0; z < points; z++){
-        //           //if(p->pointer()[x*points*points+y*points+z]>0.000001){
-        //           outfile->Printf("%d\t%d\t%d\t%0.24f\n",x,y,p->pointer()[x*points*points+y*points]);
-        //           //}
-        //        //}
-        //    }
-        //}
+      
+        double time_length = options.get_double("TIME_LENGTH");
+	double time_step = options.get_double("TIME_STEP");
         
+        //do the ground state first
+        	
+	
+        while(iter<(time_length/time_step)){	
+	//start of RT-TDHF
+	
+        //since only propagating in the Z direction psi(i) psi(j) is integrated over Z
+	
+        }
         // Typically you would build a new wavefunction and populate it with data
         return ref_wfn;
     }
 
 }} // End namespaces
+
+extern "C" PSI_API
+double dipole(){
+        
+	return 1.0;
+}
+extern "C" PSI_API
+double pulse(double time){
+        //sin(
+	return 1.0;
+}
+
+
 
