@@ -53,6 +53,21 @@
 
 namespace psi{ namespace jellium_scf {
 
+//TODO move these to header file
+double dipole(double x, int n, int m, double L);
+double pulse(double time, double time_length);
+void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, double time);
+void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density_im, double time);
+std::shared_ptr<JelliumIntegrals> Jell;
+std::shared_ptr<Matrix> h;
+std::shared_ptr<Matrix> F_re;
+std::shared_ptr<Matrix> F_im;
+std::shared_ptr<Matrix> density_re;
+double boxlength;
+double time_length;
+double Lfac;
+double time_step;
+ 
 extern "C" PSI_API
 int read_options(std::string name, Options& options)
 {
@@ -98,11 +113,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     }
 
     // factor for box size ... coded to give <rho> = 1
-    double Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
-    double boxlength = Lfac * M_PI;
+    Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
+    boxlength = Lfac * M_PI;
 
     //grabbing one-electon integrals from mintshelper
-    std::shared_ptr<JelliumIntegrals> Jell (new JelliumIntegrals(options));
+    Jell = (std::shared_ptr<JelliumIntegrals>)(new JelliumIntegrals(options));
 
     //one-electron kinetic energy integrals
     std::shared_ptr<Matrix> T = Jell->Ke;
@@ -127,7 +142,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     //build the core hamiltonian
 
     int nmax = Jell->get_nmax();
-    std::shared_ptr<Matrix> h = (std::shared_ptr<Matrix>)(new Matrix(T));
+    h = (std::shared_ptr<Matrix>)(new Matrix(T));
     std::shared_ptr<Matrix> Ca = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
     std::shared_ptr<Matrix> Shalf = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
     std::shared_ptr<Matrix> S = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
@@ -138,7 +153,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         Shalfp[i][i] = 1.0;
         Sp[i][i] = 1.0;
     }
-        printf("%d\n",Jell->nsopi_[h]);
+        //printf("%d\n",Jell->nsopi_[h]);
     }
     std::shared_ptr<DIIS> diis (new DIIS(nso*nso));
     // build core hamiltonian
@@ -147,6 +162,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     int na = nelectron / 2;
     // fock matrix
     std::shared_ptr<Matrix> F = (std::shared_ptr<Matrix>)(new Matrix(h));
+    std::shared_ptr<Matrix> Fim = (std::shared_ptr<Matrix>)(new Matrix(h));
      
     // eigenvectors / eigenvalues of fock matrix
     std::shared_ptr<Vector> Feval (new Vector(Jell->nirrep_,Jell->nsopi_));
@@ -185,6 +201,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     // containers for J and K 
     std::shared_ptr<Matrix> J (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
     std::shared_ptr<Matrix> K (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+    std::shared_ptr<Matrix> J_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+    std::shared_ptr<Matrix> K_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+    
     
 
 
@@ -489,11 +508,10 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         }
         }
         D->copy(Dnew);
-
-        //TODO Make these not occur every loop just for quick implementation
-        D_ground->copy(D);
-        F_ground->copy(Fprime);
-        
+        if(dele < e_convergence && deld < d_convergence){
+           F_re = (std::shared_ptr<Matrix>)(new Matrix(Fprime));
+           density_re = (std::shared_ptr<Matrix>)(new Matrix(D)); 
+        }
 
         iter++;
         if( iter > maxiter ) break;
@@ -524,7 +542,7 @@ outfile->Printf("Ground state density\n");
 
         //double z = 0.25 * boxlength;
         for (int xid = 0; xid < nx; xid++) {
-            printf("grid %f\n",Jell->grid_points[xid]);
+            //printf("grid %f\n",Jell->grid_points[xid]);
             double x = Jell->grid_points[xid];
             for (int yid = 0; yid < ny; yid++) {
                 double y = Jell->grid_points[yid];
@@ -561,50 +579,282 @@ outfile->Printf("Ground state density\n");
             }
             //printf("\n");
         }
-        printf("box length: %20.12lf\n",boxlength);
+        //printf("box length: %20.12lf\n",boxlength);
         //printf("total: %20.12lf\n",tmp_d);
-      
-        double time_length = options.get_double("TIME_LENGTH");
-	double time_step = options.get_double("TIME_STEP");
-   
- 	printf("Starting RT-TDHF\n");
+        F_im = (std::shared_ptr<Matrix>)(new Matrix(F_re));
+        F_im->zero();
+        std::shared_ptr<Matrix> density_im = (std::shared_ptr<Matrix>)(new Matrix(F_re));
+        density_im->zero();
+        time_length = options.get_double("TIME_LENGTH");
+        time_step = options.get_double("TIME_STEP");
+         
         
-        //To evaluate the commutator relation -i[F,D] 
-        std::shared_ptr<Matrix> Density_left(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
-        std::shared_ptr<Matrix> Density_right(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
-        std::shared_ptr<Matrix> Density_new(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
-        Density_right->gemm('n','n',1,D_ground,F_ground,1);
-        Density_left->gemm('n','n',1,F_ground,D_ground,1);
-        
-        Density_new->copy(Density_right);
-        Density_new->subtract(Density_left);
-        Density_new->print();
-        
-        //do the ground state first
-        	
 	
+        iter = 0;	
         while(iter<(time_length/time_step)){	
 	//start of RT-TDHF
+        rk_step(density_re, density_im, iter*time_step);
 	
         //since only propagating in the Z direction psi(i) psi(j) is integrated over Z
-	
+	iter++;
         }
+        //printf("%d\n",iter);
         // Typically you would build a new wavefunction and populate it with data
         return ref_wfn;
     }
 
-}} // End namespaces
 
-extern "C" PSI_API
-double dipole(){
+//extern "C" PSI_API
+double dipole(double x, int n, int m, double L){
+        //integral of sin(pi*x*n/L)^2 * x
+
+        double pixmnL = ((M_PI*x*(m+n))/L);
+        double pixm_nL = ((M_PI*x*(m-n))/L);
+        if(m==n){
+            return 0;
+        }
+        //L is total length
+        //m is second sin term n is first term
+        return -(4/L)*L*((M_PI*x*(m-n)*sin(pixm_nL)+L*cos(pixm_nL))/((m-n)*(m-n))-M_PI*x*(m+n)*sin(pixmnL)+L*cos(pixmnL))/(2*M_PI*M_PI);
+}
+//extern "C" PSI_API
+double pulse(double time, double time_length){
+        //TODO find actual weight
+        double weight = 0.00001;
+        if(time-time_length/2 == 0){return 0;}
+        return sin(weight*time)*(pow(sin(M_PI/(time_length*(time-(time_length/2)))),2));
+}
+//TODO change this to take in the starting density and fock matrices
+void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density_im, double time){
+        std::shared_ptr<Matrix> k1_re (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> k2_re (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> k3_re (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> k4_re (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> k1_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> k2_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> k3_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> k4_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> d_re_tmp (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> d_im_tmp(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        std::shared_ptr<Matrix> tmp (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        //doing first ground state perterbation
+        //To evaluate the commutator relation -i[F,D]
+        k1_re->zero();
+        buildfock(density_re, density_im, time);
+        tmp->gemm('n','n',1,density_im,F_re,1);
+        k1_re->add(tmp);
+        tmp->gemm('n','n',1,density_re,F_im,1);
+        k1_re->add(tmp);
+        tmp->gemm('n','n',1,F_im,density_re,1);
+        k1_re->subtract(tmp);
+        tmp->gemm('n','n',1,F_re,density_im,1);
+        k1_re->subtract(tmp);
         
-	return 1.0;
-}
-extern "C" PSI_API
-double pulse(double time){
-        //sin(
-	return 1.0;
-}
+        k1_im->zero();
+        tmp->gemm('n','n',1,density_re,F_re,1);
+        k1_im->subtract(tmp);
+        tmp->gemm('n','n',1,density_im,F_im,1);
+        k1_im->add(tmp);
+        tmp->gemm('n','n',1,F_re,density_re,1);
+        k1_im->add(tmp);
+        tmp->gemm('n','n',1,F_im,density_im,1);
+        k1_im->subtract(tmp);
+        
+        k1_re->scale(time_step/2);
+        k1_im->scale(time_step/2);
 
+        d_re_tmp->copy(density_re);
+        d_im_tmp->copy(density_im);
+
+        d_re_tmp->add(k1_re);
+        d_im_tmp->add(k1_im);
+
+        k2_re->zero();
+        buildfock(d_re_tmp,d_im_tmp, time+(time_step/2));
+        tmp->gemm('n','n',1,d_im_tmp,F_re,1);
+        k2_re->add(tmp);
+        tmp->gemm('n','n',1,d_re_tmp,F_im,1);
+        k2_re->add(tmp);
+        tmp->gemm('n','n',1,F_im,d_re_tmp,1);
+        k2_re->subtract(tmp);
+        tmp->gemm('n','n',1,F_re,d_im_tmp,1);
+        k2_re->subtract(tmp);
+        
+        k2_im->zero();
+        tmp->gemm('n','n',1,d_re_tmp,F_re,1);
+        k2_im->subtract(tmp);
+        tmp->gemm('n','n',1,d_im_tmp,F_im,1);
+        k2_im->add(tmp);
+        tmp->gemm('n','n',1,F_re,d_re_tmp,1);
+        k2_im->add(tmp);
+        tmp->gemm('n','n',1,F_im,d_im_tmp,1);
+        k2_im->subtract(tmp);
+        
+        k2_re->scale(time_step/2);
+        k2_im->scale(time_step/2);
+
+        d_re_tmp->copy(density_re);
+        d_im_tmp->copy(density_im);
+
+        d_re_tmp->add(k2_re);
+        d_im_tmp->add(k2_im);
+        
+        k3_re->zero();
+        buildfock(d_re_tmp,d_im_tmp, time+(time_step/2));
+        tmp->gemm('n','n',1,d_im_tmp,F_re,1);
+        k3_re->add(tmp);
+        tmp->gemm('n','n',1,d_re_tmp,F_im,1);
+        k3_re->add(tmp);
+        tmp->gemm('n','n',1,F_im,d_re_tmp,1);
+        k3_re->subtract(tmp);
+        tmp->gemm('n','n',1,F_re,d_im_tmp,1);
+        k3_re->subtract(tmp);
+        
+        k3_im->zero();
+        tmp->gemm('n','n',1,d_re_tmp,F_re,1);
+        k3_im->subtract(tmp);
+        tmp->gemm('n','n',1,d_im_tmp,F_im,1);
+        k3_im->add(tmp);
+        tmp->gemm('n','n',1,F_re,d_re_tmp,1);
+        k3_im->add(tmp);
+        tmp->gemm('n','n',1,F_im,d_im_tmp,1);
+        k3_im->subtract(tmp);
+        
+        k3_re->scale(time_step);
+        k3_im->scale(time_step);
+
+        d_re_tmp->copy(density_re);
+        d_im_tmp->copy(density_im);
+
+        d_re_tmp->add(k3_re);
+        d_im_tmp->add(k3_im);
+
+
+        k4_re->zero();
+        buildfock(d_re_tmp,d_im_tmp, time+(time_step));
+        tmp->gemm('n','n',1,d_im_tmp,F_re,1);
+        k4_re->add(tmp);
+        tmp->gemm('n','n',1,d_re_tmp,F_im,1);
+        k4_re->add(tmp);
+        tmp->gemm('n','n',1,F_im,d_re_tmp,1);
+        k4_re->subtract(tmp);
+        tmp->gemm('n','n',1,F_re,d_im_tmp,1);
+        k4_re->subtract(tmp);
+        
+        k4_im->zero();
+        tmp->gemm('n','n',1,d_re_tmp,F_re,1);
+        k4_im->subtract(tmp);
+        tmp->gemm('n','n',1,d_im_tmp,F_im,1);
+        k4_im->add(tmp);
+        tmp->gemm('n','n',1,F_re,d_re_tmp,1);
+        k4_im->add(tmp);
+        tmp->gemm('n','n',1,F_im,d_im_tmp,1);
+        k4_im->subtract(tmp);
+        
+        k4_re->scale(time_step);
+        k4_im->scale(time_step);
+
+        d_re_tmp->copy(density_re);
+        d_im_tmp->copy(density_im);
+
+        d_re_tmp->add(k4_re);
+        d_im_tmp->add(k4_im);
+   
+        //rescaling it to original since it was halved for the creation of k2
+        k1_re->scale(2);
+        k1_im->scale(2);
+        k2_re->scale(4);
+        k2_im->scale(4);
+        k3_re->scale(2);
+        k3_im->scale(2);
+        
+        d_re_tmp->add(k1_re);
+        d_re_tmp->add(k2_re);
+        d_re_tmp->add(k3_re);
+        d_im_tmp->add(k1_im);
+        d_im_tmp->add(k2_im);
+        d_im_tmp->add(k3_im);
+        d_re_tmp->scale(time_step/6);
+        d_im_tmp->scale(time_step/6);
+
+        density_re->add(d_re_tmp);
+        density_im->add(d_im_tmp);
+  
+} 
+
+void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, double time){
+    std::shared_ptr<Matrix> J (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+    std::shared_ptr<Matrix> K (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+    std::shared_ptr<Matrix> J_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+    std::shared_ptr<Matrix> K_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+          #pragma omp parallel for
+          for (short hp = 0; hp < Jell->nirrep_; hp++) {
+              short offp = 0;
+              double ** k_p = K->pointer(hp);
+              double ** j_p = J->pointer(hp);
+              double ** kim_p = K_im->pointer(hp);
+              double ** jim_p = J_im->pointer(hp);
+              for (int myh = 0; myh < hp; myh++) {
+                  offp += Jell->nsopi_[myh];
+              }
+              for (short p = 0; p < Jell->nsopi_[hp]; p++) {
+                  short pp = p + offp;
+
+                  for (short q = p; q < Jell->nsopi_[hp]; q++) {
+                      short qq = q + offp;
+
+                      double dum = 0.0;
+                      double myJ = 0.0;
+                      double myK = 0.0;
+                      double myJim = 0.0;
+                      double myKim = 0.0;
+                      for (short hr = 0; hr < Jell->nirrep_; hr++) {
+                          double ** d_p = d_re->pointer(hr);
+                          double ** dim_p = d_im->pointer(hr);
+
+                          short offr = 0;
+                          for (short myh = 0; myh < hr; myh++) {
+                              offr += Jell->nsopi_[myh];
+                          }
+
+                          for (short r = 0; r < Jell->nsopi_[hr]; r++) {
+                              short rr = r + offr;
+                              for (short s = 0; s < Jell->nsopi_[hr]; s++) {
+                                  short ss = s + offr;
+                                  myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
+                                  myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
+                                  myKim -= dim_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
+                              }
+                          }
+                          j_p[p][q] = myJ;
+                          j_p[q][p] = myJ;
+                          k_p[p][q] = myK;
+                          k_p[q][p] = myK;
+                          kim_p[p][q] = myKim;
+                          kim_p[q][p] = myKim;
+                      }
+                  }
+              }
+          }
+        F_re->copy(J);
+        F_re->scale(2.0);
+        F_re->subtract(K);
+        F_re->scale(1.0/Lfac);
+        F_re->add(h);
+        F_im->copy(K_im);
+        F_im->scale(1.0/Lfac);
+        int offset = 0;
+        for(int h = 0; h < Jell->nirrep_; h++){
+            double ** F_re_p = F_re->pointer(h);
+            for(int i = 0; i < Jell->nsopi_[h]; i++){
+                for(int j = 0; j < Jell->nsopi_[h]; j++){
+                    F_re_p[i][j] += dipole(boxlength,Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength)*pulse(time,time_length);
+                }
+            }
+            offset += Jell->nsopi_[h];
+        }
+
+}
+}} // End namespaces
 
 
