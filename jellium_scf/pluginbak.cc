@@ -54,6 +54,7 @@
 namespace psi{ namespace jellium_scf {
 
 //TODO move these to header file
+double ext_field_;
 double dipole(double x, int n, int m, double L);
 double pulse(double time, double time_length);
 void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, double time);
@@ -609,7 +610,7 @@ outfile->Printf("Ground state density\n");
                 }
                 offset += Jell->nsopi_[h];
             }
-            printf("%20.12lf %20.12lf\n",iter * time_step,dip);
+            printf("%20.12lf %20.12lf %20.12lf %20.12lf %20.12lf\n",iter * time_step,dip,density_re->rms(),density_im->rms(),ext_field_);
 
 	    
             //since only propagating in the Z direction psi(i) psi(j) is integrated over Z
@@ -639,9 +640,24 @@ double dipole(double x, int n, int m, double L){
 //extern "C" PSI_API
 double pulse(double time, double time_length){
         //TODO find actual weight
-        double weight = 0.00001;
-        if(time-time_length/2 == 0){return 0;}
-        return sin(weight*time)*(pow(sin(M_PI/(time_length*(time-(time_length/2)))),2));
+        //double weight = 0.00001;
+        //if(time-time_length/2 == 0){return 0;}
+        //return sin(weight*time)*(pow(sin(M_PI/(time_length*(time-(time_length/2)))),2));
+
+
+
+    // TODO: these parameters should be set in the input file
+    double laser_time = 4.134;             // 0.1 fs, picked for no reason at all
+    double laser_freq = 0.734986612218858; // 20 eV, also picked for no reason
+    double laser_amp  = 0.5; 
+
+    // Gaussian pulse
+    ext_field_ = laser_amp * exp(-((time-1.5*laser_time)*(time-1.5*laser_time)) / (0.3606738*laser_time*laser_time)) * sin(laser_freq*time);
+
+    // continuous pulse
+    //ext_field_ = laser_amp * sin(laser_freq*time);
+
+    return ext_field_;
 }
 //TODO change this to take in the starting density and fock matrices
 void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density_im, double time){
@@ -682,7 +698,7 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         d_re_tmp->add(k1_re);
         d_im_tmp->add(k1_im);
 
-        buildfock(d_re_tmp,d_im_tmp, time+(0.5 * time_step));
+        buildfock(d_re_tmp,d_im_tmp, time + 0.5 * time_step);
 
         k2_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
         k2_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
@@ -703,7 +719,7 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         d_re_tmp->add(k2_re);
         d_im_tmp->add(k2_im);
         
-        buildfock(d_re_tmp,d_im_tmp, time+(time_step/2));
+        buildfock(d_re_tmp,d_im_tmp, time + 0.5 * time_step);
 
         k3_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
         k3_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
@@ -825,8 +841,8 @@ void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, doubl
                           j_p[q][p] = myJ;
                           k_p[p][q] = myK;
                           k_p[q][p] = myK;
-                          kim_p[p][q] = myKim;
-                          kim_p[q][p] = myKim;
+                          kim_p[p][q] =  myKim;
+                          kim_p[q][p] = -myKim;
                       }
                   }
               }
@@ -838,6 +854,7 @@ void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, doubl
         F_re->add(h);
         F_im->copy(K_im);
         F_im->scale(1.0/Lfac);
+
         int offset = 0;
         for(int h = 0; h < Jell->nirrep_; h++){
             double ** F_re_p = F_re->pointer(h);
