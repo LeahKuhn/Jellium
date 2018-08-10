@@ -591,13 +591,32 @@ outfile->Printf("Ground state density\n");
         
 	
         iter = 0;	
+
         while(iter<(time_length/time_step)){	
-	//start of RT-TDHF
-        rk_step(density_re, density_im, iter*time_step);
-	
-        //since only propagating in the Z direction psi(i) psi(j) is integrated over Z
-	iter++;
+
+	    //start of RT-TDHF
+            rk_step(density_re, density_im, iter*time_step);
+
+            // evaluate dipole moment
+            double dip = 0.0;
+            int offset = 0;
+            for(int h = 0; h < Jell->nirrep_; h++){
+                double ** F_re_p = F_re->pointer(h);
+                for(int i = 0; i < Jell->nsopi_[h]; i++){
+                    for(int j = 0; j < Jell->nsopi_[h]; j++){
+                        dip += density_re->pointer(h)[i][j] * dipole(boxlength,Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength);
+                    }
+                }
+                offset += Jell->nsopi_[h];
+            }
+            printf("%20.12lf %20.12lf\n",iter * time_step,dip);
+
+	    
+            //since only propagating in the Z direction psi(i) psi(j) is integrated over Z
+	    iter++;
+
         }
+
         //printf("%d\n",iter);
         // Typically you would build a new wavefunction and populate it with data
         return ref_wfn;
@@ -626,6 +645,7 @@ double pulse(double time, double time_length){
 }
 //TODO change this to take in the starting density and fock matrices
 void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density_im, double time){
+
         std::shared_ptr<Matrix> k1_re (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
         std::shared_ptr<Matrix> k2_re (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
         std::shared_ptr<Matrix> k3_re (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
@@ -637,31 +657,24 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         std::shared_ptr<Matrix> d_re_tmp (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
         std::shared_ptr<Matrix> d_im_tmp(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
         std::shared_ptr<Matrix> tmp (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+
         //doing first ground state perterbation
         //To evaluate the commutator relation -i[F,D]
-        k1_re->zero();
+
         buildfock(density_re, density_im, time);
-        tmp->gemm('n','n',1,density_im,F_re,1);
-        k1_re->add(tmp);
-        tmp->gemm('n','n',1,density_re,F_im,1);
-        k1_re->add(tmp);
-        tmp->gemm('n','n',1,F_im,density_re,1);
-        k1_re->subtract(tmp);
-        tmp->gemm('n','n',1,F_re,density_im,1);
-        k1_re->subtract(tmp);
+
+        k1_re->gemm('n','n',1.0,density_im,F_re,0.0);
+        k1_re->gemm('n','n',1.0,density_re,F_im,1.0);
+        k1_re->gemm('n','n',-1.0,F_im,density_re,1.0);
+        k1_re->gemm('n','n',-1.0,F_re,density_im,1.0);
         
-        k1_im->zero();
-        tmp->gemm('n','n',1,density_re,F_re,1);
-        k1_im->subtract(tmp);
-        tmp->gemm('n','n',1,density_im,F_im,1);
-        k1_im->add(tmp);
-        tmp->gemm('n','n',1,F_re,density_re,1);
-        k1_im->add(tmp);
-        tmp->gemm('n','n',1,F_im,density_im,1);
-        k1_im->subtract(tmp);
+        k1_im->gemm('n','n',-1.0,density_re,F_re,0.0);
+        k1_im->gemm('n','n',1.0,density_im,F_im,1.0);
+        k1_im->gemm('n','n',1.0,F_re,density_re,1.0);
+        k1_im->gemm('n','n',-1.0,F_im,density_im,1.0);
         
-        k1_re->scale(time_step/2);
-        k1_im->scale(time_step/2);
+        k1_re->scale(0.5 * time_step);
+        k1_im->scale(0.5 * time_step);
 
         d_re_tmp->copy(density_re);
         d_im_tmp->copy(density_im);
@@ -669,29 +682,20 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         d_re_tmp->add(k1_re);
         d_im_tmp->add(k1_im);
 
-        k2_re->zero();
-        buildfock(d_re_tmp,d_im_tmp, time+(time_step/2));
-        tmp->gemm('n','n',1,d_im_tmp,F_re,1);
-        k2_re->add(tmp);
-        tmp->gemm('n','n',1,d_re_tmp,F_im,1);
-        k2_re->add(tmp);
-        tmp->gemm('n','n',1,F_im,d_re_tmp,1);
-        k2_re->subtract(tmp);
-        tmp->gemm('n','n',1,F_re,d_im_tmp,1);
-        k2_re->subtract(tmp);
+        buildfock(d_re_tmp,d_im_tmp, time+(0.5 * time_step));
+
+        k2_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
+        k2_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
+        k2_re->gemm('n','n',-1.0,F_im,d_re_tmp,1.0);
+        k2_re->gemm('n','n',-1.0,F_re,d_im_tmp,1.0);
         
-        k2_im->zero();
-        tmp->gemm('n','n',1,d_re_tmp,F_re,1);
-        k2_im->subtract(tmp);
-        tmp->gemm('n','n',1,d_im_tmp,F_im,1);
-        k2_im->add(tmp);
-        tmp->gemm('n','n',1,F_re,d_re_tmp,1);
-        k2_im->add(tmp);
-        tmp->gemm('n','n',1,F_im,d_im_tmp,1);
-        k2_im->subtract(tmp);
+        k2_im->gemm('n','n',-1.0,d_re_tmp,F_re,0.0);
+        k2_im->gemm('n','n',1.0,d_im_tmp,F_im,1.0);
+        k2_im->gemm('n','n',1.0,F_re,d_re_tmp,1.0);
+        k2_im->gemm('n','n',-1.0,F_im,d_im_tmp,1.0);
         
-        k2_re->scale(time_step/2);
-        k2_im->scale(time_step/2);
+        k2_re->scale(0.5 * time_step);
+        k2_im->scale(0.5 * time_step);
 
         d_re_tmp->copy(density_re);
         d_im_tmp->copy(density_im);
@@ -699,26 +703,17 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         d_re_tmp->add(k2_re);
         d_im_tmp->add(k2_im);
         
-        k3_re->zero();
         buildfock(d_re_tmp,d_im_tmp, time+(time_step/2));
-        tmp->gemm('n','n',1,d_im_tmp,F_re,1);
-        k3_re->add(tmp);
-        tmp->gemm('n','n',1,d_re_tmp,F_im,1);
-        k3_re->add(tmp);
-        tmp->gemm('n','n',1,F_im,d_re_tmp,1);
-        k3_re->subtract(tmp);
-        tmp->gemm('n','n',1,F_re,d_im_tmp,1);
-        k3_re->subtract(tmp);
+
+        k3_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
+        k3_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
+        k3_re->gemm('n','n',-1.0,F_im,d_re_tmp,1.0);
+        k3_re->gemm('n','n',-1.0,F_re,d_im_tmp,1.0);
         
-        k3_im->zero();
-        tmp->gemm('n','n',1,d_re_tmp,F_re,1);
-        k3_im->subtract(tmp);
-        tmp->gemm('n','n',1,d_im_tmp,F_im,1);
-        k3_im->add(tmp);
-        tmp->gemm('n','n',1,F_re,d_re_tmp,1);
-        k3_im->add(tmp);
-        tmp->gemm('n','n',1,F_im,d_im_tmp,1);
-        k3_im->subtract(tmp);
+        k3_im->gemm('n','n',-1.0,d_re_tmp,F_re,0.0);
+        k3_im->gemm('n','n',1.0,d_im_tmp,F_im,1.0);
+        k3_im->gemm('n','n',1.0,F_re,d_re_tmp,1.0);
+        k3_im->gemm('n','n',-1.0,F_im,d_im_tmp,1.0);
         
         k3_re->scale(time_step);
         k3_im->scale(time_step);
@@ -729,58 +724,57 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         d_re_tmp->add(k3_re);
         d_im_tmp->add(k3_im);
 
-
-        k4_re->zero();
         buildfock(d_re_tmp,d_im_tmp, time+(time_step));
-        tmp->gemm('n','n',1,d_im_tmp,F_re,1);
-        k4_re->add(tmp);
-        tmp->gemm('n','n',1,d_re_tmp,F_im,1);
-        k4_re->add(tmp);
-        tmp->gemm('n','n',1,F_im,d_re_tmp,1);
-        k4_re->subtract(tmp);
-        tmp->gemm('n','n',1,F_re,d_im_tmp,1);
-        k4_re->subtract(tmp);
+
+        k4_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
+        k4_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
+        k4_re->gemm('n','n',-1.0,F_im,d_re_tmp,1.0);
+        k4_re->gemm('n','n',-1.0,F_re,d_im_tmp,1.0);
         
-        k4_im->zero();
-        tmp->gemm('n','n',1,d_re_tmp,F_re,1);
-        k4_im->subtract(tmp);
-        tmp->gemm('n','n',1,d_im_tmp,F_im,1);
-        k4_im->add(tmp);
-        tmp->gemm('n','n',1,F_re,d_re_tmp,1);
-        k4_im->add(tmp);
-        tmp->gemm('n','n',1,F_im,d_im_tmp,1);
-        k4_im->subtract(tmp);
+        k4_im->gemm('n','n',-1.0,d_re_tmp,F_re,0.0);
+        k4_im->gemm('n','n',1.0,d_im_tmp,F_im,1.0);
+        k4_im->gemm('n','n',1.0,F_re,d_re_tmp,1.0);
+        k4_im->gemm('n','n',-1.0,F_im,d_im_tmp,1.0);
         
         k4_re->scale(time_step);
         k4_im->scale(time_step);
 
-        d_re_tmp->copy(density_re);
-        d_im_tmp->copy(density_im);
+        d_re_tmp->zero();
+        d_im_tmp->zero();
 
+        // D += K1
+        //rescaling it to original since it was halved for the creation of k2
+        k1_re->scale(2.0);
+        k1_im->scale(2.0);
+        d_re_tmp->add(k1_re);
+        d_im_tmp->add(k1_im);
+
+        // D += 2 K2
+        //rescaling it to original since it was halved for the creation of k3
+        //and we want total scaling of 2
+        k2_re->scale(4.0);
+        k2_im->scale(4.0);
+        d_re_tmp->add(k2_re);
+        d_im_tmp->add(k2_im);
+   
+        // D += 2 K3
+        k3_re->scale(2.0);
+        k3_im->scale(2.0);
+        d_re_tmp->add(k3_re);
+        d_im_tmp->add(k3_im);
+
+        // D += K4
         d_re_tmp->add(k4_re);
         d_im_tmp->add(k4_im);
-   
-        //rescaling it to original since it was halved for the creation of k2
-        k1_re->scale(2);
-        k1_im->scale(2);
-        k2_re->scale(4);
-        k2_im->scale(4);
-        k3_re->scale(2);
-        k3_im->scale(2);
-        
-        d_re_tmp->add(k1_re);
-        d_re_tmp->add(k2_re);
-        d_re_tmp->add(k3_re);
-        d_im_tmp->add(k1_im);
-        d_im_tmp->add(k2_im);
-        d_im_tmp->add(k3_im);
-        d_re_tmp->scale(time_step/6);
-        d_im_tmp->scale(time_step/6);
+
+        d_re_tmp->scale(time_step/6.0);
+        d_im_tmp->scale(time_step/6.0);
 
         density_re->add(d_re_tmp);
         density_im->add(d_im_tmp);
   
 } 
+
 
 void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, double time){
     std::shared_ptr<Matrix> J (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
@@ -822,8 +816,9 @@ void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, doubl
                               for (short s = 0; s < Jell->nsopi_[hr]; s++) {
                                   short ss = s + offr;
                                   myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
-                                  myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
-                                  myKim -= dim_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
+                                  double eri = Jell->ERI_int(pp,ss,rr,qq);
+                                  myK += d_p[r][s] * eri;
+                                  myKim -= dim_p[r][s] * eri;
                               }
                           }
                           j_p[p][q] = myJ;
