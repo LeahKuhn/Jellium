@@ -817,6 +817,10 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   int* z1 = (int *)malloc(3*sizeof(int));
   int* z2 = (int *)malloc(3*sizeof(int));
  
+  if((a[0]+b[0]+c[0]+d[0])%2==1){
+     return 0;
+  }
+ 
   x1[0] = abs(a[0] - b[0]);
   y1[0] = abs(a[1] - b[1]);
   z1[0] = abs(a[2] - b[2]);
@@ -1387,62 +1391,38 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
     norbs = new_nmax;
 }
 void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons) {
-    int eee = 0;
-    int eeo = 0;
-    int eoe = 0;
-    int eoo = 0;
-    int oee = 0;
-    int oeo = 0;
-    int ooe = 0;
-    int ooo = 0;
+    int ee = 0;
+    int eo = 0;
+    int oe = 0;
+    int oo = 0;
     for (int i = 0; i < orbitalMax; i++) {
-        if ( MO[i][0]%2==0 ){
             if ( MO[i][1]%2==0 ){
                 if( MO[i][2]%2==0 ){
-                   eee++;
+                   ee++;
                 } else {
-                   eeo++;
+                   eo++;
                 }
             }else{
                 if( MO[i][2]%2==0 ){
-                   eoe++;
+                   oe++;
                 } else {
-                   eoo++;
+                   oo++;
                 }
             }
-        } else {
-            if ( MO[i][1]%2==0 ){
-                if( MO[i][2]%2==0 ){
-                   oee++;
-                } else {
-                   oeo++;
-                }
-            }else{
-                if( MO[i][2]%2==0 ){
-                   ooe++;
-                } else {
-                   ooo++;
-                }
-            } 
-        }
     } 
     //printf("eee: %d \neeo: %d \neoe: %d \neoo: %d\n oee: %d\n oeo: %d\n ooe: %d\n ooo: %d\n",eee,eeo,eoe,eoo,oee,oeo,ooe,ooo);
-    nirrep_ = 8;
+    nirrep_ = 4;
     nsopi_ = (int*)malloc(nirrep_*sizeof(int));
-    nsopi_[0] = eee;
-    nsopi_[1] = eeo;
-    nsopi_[2] = eoe;
-    nsopi_[3] = eoo;
-    nsopi_[4] = oee;
-    nsopi_[5] = oeo;
-    nsopi_[6] = ooe;
-    nsopi_[7] = ooo;
+    nsopi_[0] = ee;
+    nsopi_[1] = eo;
+    nsopi_[2] = oe;
+    nsopi_[3] = oo;
     int tmp = 0;
     double tmp_energy = 0;
     double max_energy = E[electrons/2];
     int* tmp_swap = (int*)malloc(3*sizeof(int));
     for(int i = 0; i < orbitalMax; i++){
-        if(MO[i][0]%2==0 && MO[i][1]%2==0 && MO[i][2]%2==0){
+        if(MO[i][1]%2==0 && MO[i][2]%2==0){
            tmp_swap[0]=MO[tmp][0];
            tmp_swap[1]=MO[tmp][1];
            tmp_swap[2]=MO[tmp][2];
@@ -1460,7 +1440,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
    
     }
     for(int i = 0; i < orbitalMax; i++){
-        if(MO[i][0]%2==0 && MO[i][1]%2==0 && MO[i][2]%2==1){
+        if(MO[i][1]%2==0 && MO[i][2]%2==1){
            tmp_swap[0]=MO[tmp][0];
            tmp_swap[1]=MO[tmp][1];
            tmp_swap[2]=MO[tmp][2];
@@ -1478,7 +1458,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
    
     }
     for(int i = 0; i < orbitalMax; i++){
-        if(MO[i][0]%2==0 && MO[i][1]%2==1 && MO[i][2]%2==0){
+        if(MO[i][1]%2==1 && MO[i][2]%2==0){
            tmp_swap[0]=MO[tmp][0];
            tmp_swap[1]=MO[tmp][1];
            tmp_swap[2]=MO[tmp][2];
@@ -1496,61 +1476,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
    
     }
     for(int i = 0; i < orbitalMax; i++){
-        if(MO[i][0]%2==0 && MO[i][1]%2==1 && MO[i][2]%2==1){
-           tmp_swap[0]=MO[tmp][0];
-           tmp_swap[1]=MO[tmp][1];
-           tmp_swap[2]=MO[tmp][2];
-           tmp_energy = E[tmp];
-           MO[tmp][0]=MO[i][0];
-           MO[tmp][1]=MO[i][1];
-           MO[tmp][2]=MO[i][2];
-           E[tmp] = E[i];
-           tmp++;
-           MO[i][0]=tmp_swap[0];
-           MO[i][1]=tmp_swap[1];
-           MO[i][2]=tmp_swap[2];
-           E[i]=tmp_energy;
-        }
-   
-    }
-    for(int i = 0; i < orbitalMax; i++){
-        if(MO[i][0]%2==1 && MO[i][1]%2==0 && MO[i][2]%2==0){
-           tmp_swap[0]=MO[tmp][0];
-           tmp_swap[1]=MO[tmp][1];
-           tmp_swap[2]=MO[tmp][2];
-           tmp_energy = E[tmp];
-           MO[tmp][0]=MO[i][0];
-           MO[tmp][1]=MO[i][1];
-           MO[tmp][2]=MO[i][2];
-           E[tmp] = E[i];
-           tmp++;
-           MO[i][0]=tmp_swap[0];
-           MO[i][1]=tmp_swap[1];
-           MO[i][2]=tmp_swap[2];
-           E[i]=tmp_energy;
-        }
-   
-    }
-    for(int i = 0; i < orbitalMax; i++){
-        if(MO[i][0]%2==1 && MO[i][1]%2==0 && MO[i][2]%2==1){
-           tmp_swap[0]=MO[tmp][0];
-           tmp_swap[1]=MO[tmp][1];
-           tmp_swap[2]=MO[tmp][2];
-           tmp_energy = E[tmp];
-           MO[tmp][0]=MO[i][0];
-           MO[tmp][1]=MO[i][1];
-           MO[tmp][2]=MO[i][2];
-           E[tmp] = E[i];
-           tmp++;
-           MO[i][0]=tmp_swap[0];
-           MO[i][1]=tmp_swap[1];
-           MO[i][2]=tmp_swap[2];
-           E[i]=tmp_energy;
-        }
-   
-    }
-    for(int i = 0; i < orbitalMax; i++){
-        if(MO[i][0]%2==1 && MO[i][1]%2==1 && MO[i][2]%2==0){
+        if(MO[i][1]%2==1 && MO[i][2]%2==1){
            tmp_swap[0]=MO[tmp][0];
            tmp_swap[1]=MO[tmp][1];
            tmp_swap[2]=MO[tmp][2];
@@ -1594,7 +1520,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
     }
     //printf("max energy%f\n",max_energy);
     for(int i = 0; i < nirrep_; i++){
-        //printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
+        printf("electrons[%d] with <= max energy %d\n",i,Eirrep_[i]);
     }
     offsetJ = 0;
     for(int i = 0; i < nirrep_; i++){
@@ -1619,7 +1545,7 @@ void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons
        offsetJ += nsopi_[i];
     }
     for(int i = 0; i < orbitalMax; i++){
-       //printf("MO[%d][0]:%d\tMO[%d][1]:%d\tMO[%d][2]:%d energy: %f\n",i,MO[i][0],i,MO[i][1],i,MO[i][2],E[i]);
+       printf("MO[%d][0]:%d\tMO[%d][1]:%d\tMO[%d][2]:%d energy: %f\n",i,MO[i][0],i,MO[i][1],i,MO[i][2],E[i]);
     }
 }
 

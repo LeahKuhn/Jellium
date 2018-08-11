@@ -597,7 +597,6 @@ outfile->Printf("Ground state density\n");
 
 	    //start of RT-TDHF
             rk_step(density_re, density_im, iter*time_step);
-
             // evaluate dipole moment
             double dip = 0.0;
             int offset = 0;
@@ -631,11 +630,16 @@ double dipole(double x, int n, int m, double L){
         double pixmnL = ((M_PI*x*(m+n))/L);
         double pixm_nL = ((M_PI*x*(m-n))/L);
         if(m==n){
-            return 0;
+            return x*x*.5;
         }
         //L is total length
         //m is second sin term n is first term
-        return -(4/L)*L*((M_PI*x*(m-n)*sin(pixm_nL)+L*cos(pixm_nL))/((m-n)*(m-n))-M_PI*x*(m+n)*sin(pixmnL)+L*cos(pixmnL))/(2*M_PI*M_PI);
+        //indenfinite integral
+        //return -(2/L)*L*((M_PI*x*(m-n)*sin(pixm_nL)+L*cos(pixm_nL))/((m-n)*(m-n))-M_PI*x*(m+n)*sin(pixmnL)+L*cos(pixmnL))/(2*M_PI*M_PI);
+        //printf("L %f\n",L);
+        //return 0.5; 
+        //definite integral
+        return (-2/L)*(1/(M_PI*M_PI*(m-n)*(m-n)*(m+n)*(m+n)))*L*L*(-M_PI*n*(n*n-m*m)*sin(M_PI*m)*cos(M_PI*n)+cos(M_PI*m)*((M_PI*m*(n*n-m*m))*sin(M_PI*n)+2*m*n*cos(M_PI*n))+m*m*sin(M_PI*m)*sin(M_PI*n)+n*n*sin(M_PI*m)*sin(M_PI*n)-2*m*n);
 }
 //extern "C" PSI_API
 double pulse(double time, double time_length){
@@ -683,6 +687,7 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         k1_re->gemm('n','n',1.0,density_re,F_im,1.0);
         k1_re->gemm('n','n',-1.0,F_im,density_re,1.0);
         k1_re->gemm('n','n',-1.0,F_re,density_im,1.0);
+        
         
         k1_im->gemm('n','n',-1.0,density_re,F_re,0.0);
         k1_im->gemm('n','n',1.0,density_im,F_im,1.0);
@@ -757,7 +762,7 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
 
         d_re_tmp->zero();
         d_im_tmp->zero();
-
+        
         // D += K1
         //rescaling it to original since it was halved for the creation of k2
         k1_re->scale(2.0);
@@ -861,6 +866,7 @@ void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, doubl
             for(int i = 0; i < Jell->nsopi_[h]; i++){
                 for(int j = 0; j < Jell->nsopi_[h]; j++){
                     F_re_p[i][j] += dipole(boxlength,Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength)*pulse(time,time_length);
+                    //F_re_p[i][j] += dipole(boxlength,Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength);
                 }
             }
             offset += Jell->nsopi_[h];
