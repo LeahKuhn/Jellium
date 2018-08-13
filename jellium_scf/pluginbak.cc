@@ -625,12 +625,11 @@ outfile->Printf("Ground state density\n");
 
 //extern "C" PSI_API
 double dipole(double x, int n, int m, double L){
-        //integral of sin(pi*x*n/L)^2 * x
 
         double pixmnL = ((M_PI*x*(m+n))/L);
         double pixm_nL = ((M_PI*x*(m-n))/L);
         if(m==n){
-            return x*x*.5;
+            return (-2/L)*(-L*L*(-2*M_PI*M_PI*n*n+2*M_PI*n*sin(2*M_PI*n)+cos(2*M_PI*n)-1)/(8*M_PI*M_PI*n*n));
         }
         //L is total length
         //m is second sin term n is first term
@@ -683,16 +682,16 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
 
         buildfock(density_re, density_im, time);
 
-        k1_re->gemm('n','n',1.0,density_im,F_re,0.0);
-        k1_re->gemm('n','n',1.0,density_re,F_im,1.0);
-        k1_re->gemm('n','n',-1.0,F_im,density_re,1.0);
-        k1_re->gemm('n','n',-1.0,F_re,density_im,1.0);
+        k1_re->gemm(false,false,1.0,density_im,F_re,0.0);
+        k1_re->gemm(false,false,1.0,density_re,F_im,1.0);
+        k1_re->gemm(false,false,-1.0,F_im,density_re,1.0);
+        k1_re->gemm(false,false,-1.0,F_re,density_im,1.0);
         
         
-        k1_im->gemm('n','n',-1.0,density_re,F_re,0.0);
-        k1_im->gemm('n','n',1.0,density_im,F_im,1.0);
-        k1_im->gemm('n','n',1.0,F_re,density_re,1.0);
-        k1_im->gemm('n','n',-1.0,F_im,density_im,1.0);
+        k1_im->gemm(false,false,-1.0,density_re,F_re,0.0);
+        k1_im->gemm(false,false,1.0,density_im,F_im,1.0);
+        k1_im->gemm(false,false,1.0,F_re,density_re,1.0);
+        k1_im->gemm(false,false,-1.0,F_im,density_im,1.0);
         
         k1_re->scale(0.5 * time_step);
         k1_im->scale(0.5 * time_step);
@@ -705,15 +704,15 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
 
         buildfock(d_re_tmp,d_im_tmp, time + 0.5 * time_step);
 
-        k2_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
-        k2_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
-        k2_re->gemm('n','n',-1.0,F_im,d_re_tmp,1.0);
-        k2_re->gemm('n','n',-1.0,F_re,d_im_tmp,1.0);
+        k2_re->gemm(false,false,1.0,d_im_tmp,F_re,0.0);
+        k2_re->gemm(false,false,1.0,d_re_tmp,F_im,1.0);
+        k2_re->gemm(false,false,-1.0,F_im,d_re_tmp,1.0);
+        k2_re->gemm(false,false,-1.0,F_re,d_im_tmp,1.0);
         
-        k2_im->gemm('n','n',-1.0,d_re_tmp,F_re,0.0);
-        k2_im->gemm('n','n',1.0,d_im_tmp,F_im,1.0);
-        k2_im->gemm('n','n',1.0,F_re,d_re_tmp,1.0);
-        k2_im->gemm('n','n',-1.0,F_im,d_im_tmp,1.0);
+        k2_im->gemm(false,false,-1.0,d_re_tmp,F_re,0.0);
+        k2_im->gemm(false,false,1.0,d_im_tmp,F_im,1.0);
+        k2_im->gemm(false,false,1.0,F_re,d_re_tmp,1.0);
+        k2_im->gemm(false,false,-1.0,F_im,d_im_tmp,1.0);
         
         k2_re->scale(0.5 * time_step);
         k2_im->scale(0.5 * time_step);
@@ -726,15 +725,15 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         
         buildfock(d_re_tmp,d_im_tmp, time + 0.5 * time_step);
 
-        k3_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
-        k3_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
-        k3_re->gemm('n','n',-1.0,F_im,d_re_tmp,1.0);
-        k3_re->gemm('n','n',-1.0,F_re,d_im_tmp,1.0);
+        k3_re->gemm(false,false,1.0,d_im_tmp,F_re,0.0);
+        k3_re->gemm(false,false,1.0,d_re_tmp,F_im,1.0);
+        k3_re->gemm(false,false,-1.0,F_im,d_re_tmp,1.0);
+        k3_re->gemm(false,false,-1.0,F_re,d_im_tmp,1.0);
         
-        k3_im->gemm('n','n',-1.0,d_re_tmp,F_re,0.0);
-        k3_im->gemm('n','n',1.0,d_im_tmp,F_im,1.0);
-        k3_im->gemm('n','n',1.0,F_re,d_re_tmp,1.0);
-        k3_im->gemm('n','n',-1.0,F_im,d_im_tmp,1.0);
+        k3_im->gemm(false,false,-1.0,d_re_tmp,F_re,0.0);
+        k3_im->gemm(false,false,1.0,d_im_tmp,F_im,1.0);
+        k3_im->gemm(false,false,1.0,F_re,d_re_tmp,1.0);
+        k3_im->gemm(false,false,-1.0,F_im,d_im_tmp,1.0);
         
         k3_re->scale(time_step);
         k3_im->scale(time_step);
@@ -747,15 +746,15 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
 
         buildfock(d_re_tmp,d_im_tmp, time+(time_step));
 
-        k4_re->gemm('n','n',1.0,d_im_tmp,F_re,0.0);
-        k4_re->gemm('n','n',1.0,d_re_tmp,F_im,1.0);
-        k4_re->gemm('n','n',-1.0,F_im,d_re_tmp,1.0);
-        k4_re->gemm('n','n',-1.0,F_re,d_im_tmp,1.0);
+        k4_re->gemm(false,false,1.0,d_im_tmp,F_re,0.0);
+        k4_re->gemm(false,false,1.0,d_re_tmp,F_im,1.0);
+        k4_re->gemm(false,false,-1.0,F_im,d_re_tmp,1.0);
+        k4_re->gemm(false,false,-1.0,F_re,d_im_tmp,1.0);
         
-        k4_im->gemm('n','n',-1.0,d_re_tmp,F_re,0.0);
-        k4_im->gemm('n','n',1.0,d_im_tmp,F_im,1.0);
-        k4_im->gemm('n','n',1.0,F_re,d_re_tmp,1.0);
-        k4_im->gemm('n','n',-1.0,F_im,d_im_tmp,1.0);
+        k4_im->gemm(false,false,-1.0,d_re_tmp,F_re,0.0);
+        k4_im->gemm(false,false,1.0,d_im_tmp,F_im,1.0);
+        k4_im->gemm(false,false,1.0,F_re,d_re_tmp,1.0);
+        k4_im->gemm(false,false,-1.0,F_im,d_im_tmp,1.0);
         
         k4_re->scale(time_step);
         k4_im->scale(time_step);
@@ -788,8 +787,8 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         d_re_tmp->add(k4_re);
         d_im_tmp->add(k4_im);
 
-        d_re_tmp->scale(time_step/6.0);
-        d_im_tmp->scale(time_step/6.0);
+        d_re_tmp->scale(1/6.0);
+        d_im_tmp->scale(1/6.0);
 
         density_re->add(d_re_tmp);
         density_im->add(d_im_tmp);
@@ -855,17 +854,17 @@ void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, doubl
         F_re->copy(J);
         F_re->scale(2.0);
         F_re->subtract(K);
-        F_re->scale(1.0/Lfac);
         F_re->add(h);
         F_im->copy(K_im);
         F_im->scale(1.0/Lfac);
+        F_re->scale(1.0/Lfac);
 
         int offset = 0;
         for(int h = 0; h < Jell->nirrep_; h++){
             double ** F_re_p = F_re->pointer(h);
             for(int i = 0; i < Jell->nsopi_[h]; i++){
                 for(int j = 0; j < Jell->nsopi_[h]; j++){
-                    F_re_p[i][j] += dipole(boxlength,Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength)*pulse(time,time_length);
+                    F_re_p[i][j] -= dipole(boxlength,Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength)*pulse(time,time_length);
                     //F_re_p[i][j] += dipole(boxlength,Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength);
                 }
             }
