@@ -81,12 +81,16 @@ int read_options(std::string name, Options& options)
         options.add_int("N_ELECTRONS", 2);
         /*- The number of basis functions -*/
         options.add_int("N_BASIS_FUNCTIONS", 26);
-        /*- The length of the box -*/
-        options.add_double("LENGTH", M_PI);
+        /*- The length of the box in nm -*/
+        options.add_double("LENGTH", 1);
 	/*- The time in femtoseconds for the pulse -*/
 	options.add_double("TIME_LENGTH", 100);
 	/*- The time step in femtoseconds -*/
 	options.add_double("TIME_STEP", 0.01);
+	/*- The density of the box in e/nm^3 -*/
+	options.add_double("DENSITY", 92);
+	/*- Enable ground state density output -*/
+	options.add_bool("PRINT_DENSITY", false);
     }
 
     return true;
@@ -114,7 +118,12 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     }
 
     // factor for box size ... coded to give <rho> = 1
-    Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
+       //Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
+       //boxlength = Lfac * M_PI;
+
+    //since box is already pi a.u. long
+    double length_nm = options.get_double("length");
+    Lfac = length_nm * 18.89725988 / M_PI;
     boxlength = Lfac * M_PI;
 
     //grabbing one-electon integrals from mintshelper
@@ -530,7 +539,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         double fock_energy = D->vector_dot(K) / Lfac;
         outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
         outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
-
+   
+        if(options.get_bool("print_density")){
 outfile->Printf("Ground state density\n");
         int points = options.get_int("N_GRID_POINTS");
         double tmp_d = 0.0;
@@ -582,6 +592,7 @@ outfile->Printf("Ground state density\n");
         }
         //printf("box length: %20.12lf\n",boxlength);
         //printf("total: %20.12lf\n",tmp_d);
+        }
         F_im = (std::shared_ptr<Matrix>)(new Matrix(F_re));
         F_im->zero();
         std::shared_ptr<Matrix> density_im = (std::shared_ptr<Matrix>)(new Matrix(F_re));
@@ -609,10 +620,10 @@ outfile->Printf("Ground state density\n");
                 }
                 offset += Jell->nsopi_[h];
             }
-            printf("%20.12lf %20.12lf %20.12lf %20.12lf %20.12lf\n",iter * time_step,dip,density_re->rms(),density_im->rms(),ext_field_);
+            outfile->Printf("%20.12lf %20.12lf %20.12lf %20.12lf %20.12lf\n",iter * time_step,dip,density_re->rms(),density_im->rms(),ext_field_);
 
 	    
-            //since only propagating in the Z direction psi(i) psi(j) is integrated over Z
+            //since only propagating in the x direction psi(i) psi(j) is integrated over x
 	    iter++;
 
         }

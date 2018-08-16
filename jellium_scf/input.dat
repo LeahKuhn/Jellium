@@ -15,11 +15,13 @@ A = 104.5
 
 set {
   basis sto-3g
-  n_grid_points         30
-  n_electrons           30
-  n_basis_functions     60
-  time_step             0.1
-  time_length           10
+  n_grid_points         160
+  n_electrons           92
+  n_basis_functions     170
+  time_step             0.01
+  time_length           100
+  e_convergence         0.000000001
+  d_convergence         0.000000001
 }
 
 energy('jellium_scf')
