@@ -69,6 +69,7 @@ class JelliumIntegrals{
     double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz);
   private:
     void compute();
+    double**** ERI_mem;
     void Orderirrep(int &norbs, double *E, int **MO, int electrons);
     double n_order_;
     int electrons;
@@ -76,32 +77,21 @@ class JelliumIntegrals{
     int orbitalMax;
     int nmax = 0;
     double pi;
-    double length;
     /// Options object
     Options & options_;
     //  Electron integral functions
-    //double ERI(int dim, double *xa, double *w, double *a, double *b, double *c, double *d);
     double ERI(int dim, double *xa, double *w, int *a, int *b, int *c, int *d);
     double g_pq(int p, int q, double r);
-    //double pq_int(int dim, double *x, double *w, double px, double py, double pz, double qx, double qy, double qz);
     double pq_int(int dim, double *x, double *w, int px, int py, int pz, int qx, int qy, int qz);
     double E0_Int(int dim, double *xa, double *w);
     double Vab_Int(int dim, double *xa, double *w, int *a, int *b);
     double Vab_Int_new(int dim, double *xa, double *w, int *a, int *b);
 
-    //double ERI_new(std::shared_ptr<Vector> a, std::shared_ptr<Vector> b, std::shared_ptr<Vector> c, std::shared_ptr<Vector> d, double ** PQ, int *** PQmap);
     double ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap);
     double ERI_new(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap);
     
     void OrderPsis3D(int &norbs, double *E, int **MO);
     int **MAT_INT(int dim1, int dim2);
-    int *VEC_INT(int dim);
-    //int * x1;
-    //int * x2;
-    //int * y1;
-    //int * y2;
-    //int * z1;
-    //int * z2;
 };
 
 }}
