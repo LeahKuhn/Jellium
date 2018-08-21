@@ -30,6 +30,7 @@
 # include <math.h>
 # include <time.h>
 # include <string.h>
+#include<unordered_map>
 
 #include <psi4/libplugin/plugin.h>
 #include <psi4/psi4-dec.h>
@@ -69,6 +70,7 @@ JelliumIntegrals::JelliumIntegrals(Options & options):
 
     orbitalMax = options.get_int("N_BASIS_FUNCTIONS");
     electrons = options.get_int("N_ELECTRONS");
+    fast_eri = options.get_bool("FAST_ERI");
     common_init();
     compute();
 }
@@ -114,11 +116,11 @@ void JelliumIntegrals::compute() {
   //  This is one of John Burkhardt's library functions
   tmp.legendre_compute_glr(n, x, w);
 
+  //eri_map = (double************)malloc(nmax*sizeof(double***********));
   // Scale the grid to start at value a and end at value b. 
   // We want our integration range to go from 0 to 1, so a = 0, b = 1
   // This is also one of John Burkhardt's library functions
   tmp.rescale( a, b, n, x, w);
-
   for(int i = 0; i < n; i++){
     //  printf("weight %d\t%f\n",i,w[i]);
   }
@@ -476,28 +478,54 @@ void JelliumIntegrals::compute() {
 
   // Compute self energy
   selfval = E0_Int(n, x, w);
-  
-  //if(options.get_bool("FAST_ERI")){
-  //   outfile->Printf("Building ERI in memory.....");
-  //   for(int i = 0; i < nmax+1; i++){
-  //      ERI_mem[i] = (double***)malloc((nmax+1)*sizeof(double***));
-  //      for(int j = 0; j < nmax+1; j++){
-  //         ERI_mem[i][j] = (double**)malloc((nmax+1)*sizeof(double***));
-  //         for(int k = 0; k < nmax+1; k++){
-  //            ERI_mem[i][j][k] = (double*)malloc((nmax+1)*sizeof(double***));
-  //            for(int l = 0; l < nmax+1; l++){
-  //               ERI_mem[i][j][k][l] = ERI_int(i,j,k,l);           
-  //            }
-  //         }
-  //      }
-  //   }
-  //   fast_eri = true;
-  //   outfile->Printf("done\n");
-  //}
 
 }
 
 double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
+    if((MO[a][0]+MO[b][0]+MO[c][0]+MO[d][0])%2==1){
+      return 0;
+    }
+    
+    if(fast_eri){
+    if(iter < 2){
+       #pragma omp critical 
+       { 
+       if(eri_map2 == nullptr){
+          eri_map2 = (double****)malloc(orbitalMax*sizeof(double***));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[i] = nullptr;
+          }
+       }
+       if(eri_map2[a] == nullptr){
+          eri_map2[a] = (double***)malloc(orbitalMax*sizeof(double**));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[a][i] = nullptr;
+          }
+       }
+       if(eri_map2[a][b] == nullptr){
+          eri_map2[a][b] = (double**)malloc(orbitalMax*sizeof(double*));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[a][b][i] = nullptr;
+          }
+       }
+       if(eri_map2[a][b][c] == nullptr){
+          eri_map2[a][b][c] = (double*)malloc(orbitalMax*sizeof(double));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[a][b][c][i] = -999;
+          }
+       }
+       }
+    }
+    if(eri_map2[a][b][c][d] != -999){return eri_map2[a][b][c][d];}
+
+    double tmp = ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+  
+    eri_map2[a][b][c][d] = tmp;
+
+    return tmp;
+    
+    }
+
     return ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
 }
 
@@ -641,10 +669,7 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   int* z1 = (int *)malloc(3*sizeof(int));
   int* z2 = (int *)malloc(3*sizeof(int));
  
-  if((a[0]+b[0]+c[0]+d[0])%2==1){
-     return 0;
-  }
- 
+  
   x1[0] = abs(a[0] - b[0]);
   y1[0] = abs(a[1] - b[1]);
   z1[0] = abs(a[2] - b[2]);
@@ -661,7 +686,6 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   x2[1] = c[0] + d[0];
   y2[1] = c[1] + d[1];
   z2[1] = c[2] + d[2];
- 
   // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
 
   double eri_val = 0.0;
@@ -928,6 +952,7 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
   free(y2);
   free(z1);
   free(z2);
+
   return eri_val;
 
 }

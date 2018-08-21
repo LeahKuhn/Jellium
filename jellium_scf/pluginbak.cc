@@ -44,6 +44,7 @@
 #include "psi4/pragma.h"
 #include"JelliumIntegrals.h"
 #include "diis_c.h"
+#include "unordered_map"
 #ifdef _OPENMP
     #include<omp.h>
 #else
@@ -101,6 +102,8 @@ int read_options(std::string name, Options& options)
         options.add_double("LASER_FREQ",0.734986612218858);
         /*- Laser amplitude -*/
         options.add_double("LASER_AMP",0.5); 
+        /*- Fast eri? memory expensive -*/
+        options.add_bool("FAST_ERI",false); 
     }
 
     return true;
@@ -231,8 +234,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("                |dD|\n");
     double dele = 0.0;
     double deld = 0.0;
+  
+   
     do {
         K->zero();
+        printf("iter %d\n",iter);
         #pragma omp parallel for
         for (short hp = 0; hp < Jell->nirrep_; hp++) {
             short offp = 0;
@@ -261,14 +267,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                             short rr = r + offr;
                             for (short s = 0; s < Jell->nsopi_[hr]; s++) {
                                 short ss = s + offr;
-                                if(r==s){
-                                    //printf("p %d q %d r %d s %d \t%f\n",pp,qq,rr,ss,Jell->ERI_int(pp,qq,rr,ss));
-                                    myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
-                                    myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
-                                } else {
-                                    myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
-                                    myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
-                                }
+                                //printf("p %d q %d r %d s %d \t%f\n",pp,qq,rr,ss,Jell->ERI_int(pp,qq,rr,ss));
+                                myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
+                                myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
                             }
                         }
                         j_p[p][q] = myJ;
@@ -279,7 +280,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                 }
             }
         }
-        
+        if(iter>2){Jell->iter = 2;}
         //create fock matrix from pieces
         F->copy(J);
         F->scale(2.0);
@@ -299,6 +300,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
         //building density matrix
         std::shared_ptr<Matrix> Dnew (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+        #pragma omp parallel for shared(deld)
         for(int h = 0; h < Jell->nirrep_; h++){
             double ** dnew_p = Dnew->pointer(h);
             double ** c_p = Ca->pointer(h);
@@ -370,6 +372,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         }
 
         deld = 0.0;
+        #pragma omp parallel for shared(deld)
         for(int h = 0; h < Jell->nirrep_; h++){
             double ** d_p = D->pointer(h);
             double ** dnew_p = Dnew->pointer(h);
@@ -387,6 +390,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         outfile->Printf("    %6i%20.12lf%20.12lf%20.12lf\n", iter, new_energy, dele, deld);
         energy = new_energy;
         Fprime->diagonalize(Ca,Feval);
+        #pragma omp parallel for
         for(int h = 0; h < Jell->nirrep_; h++){
             double ** dnew_p = Dnew->pointer(h);
             double ** c_p = Ca->pointer(h);
@@ -401,6 +405,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             }
         }
         D->copy(Dnew);
+        if(options.get_bool("FAST_ERI")){
+           Jell->fast_eri_done = true;
+        }
         if(dele < e_convergence && deld < d_convergence){
             F_re = (std::shared_ptr<Matrix>)(new Matrix(Fprime));
             density_re = (std::shared_ptr<Matrix>)(new Matrix(D)); 
@@ -487,7 +494,6 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     laser_amp  = options.get_double("LASER_AMP");
 
 
-
     iter = 0;	
     boxlength = options.get_double("LENGTH");
     double * Vre = (double*)malloc((int)time_length/time_step*sizeof(double));
@@ -499,6 +505,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         // evaluate dipole moment
         double dip = 0.0;
         int offset = 0;
+       
         for(int h = 0; h < Jell->nirrep_; h++){
             for(int i = 0; i < Jell->nsopi_[h]; i++){
                 for(int j = 0; j < Jell->nsopi_[h]; j++){
@@ -526,7 +533,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 double dipole(int n, int m, double L){
 
         if(m==n){
-            return (-2/L)*(-L*L*(-2*M_PI*M_PI*n*n+2*M_PI*n*sin(2*M_PI*n)+cos(2*M_PI*n)-1)/(8*M_PI*M_PI*n*n));
+            //return (-2/L)*(-L*L*(-2*M_PI*M_PI*n*n+2*M_PI*n*sin(2*M_PI*n)+cos(2*M_PI*n)-1)/(8*M_PI*M_PI*n*n));
+            //just testing the results of this
+            return 0;
         }
         //L is total length
         //m is second sin term n is first term

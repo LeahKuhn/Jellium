@@ -31,6 +31,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<math.h>
+#include<unordered_map>
 
 #include <psi4/libplugin/plugin.h>
 #include <psi4/psi4-dec.h>
@@ -66,10 +67,13 @@ class JelliumIntegrals{
     std::shared_ptr<Vector> g_tensor;
     int ** MO;
     double* w;
+    int iter = 0;
+    bool fast_eri_done = false;
     double pq_int_new(int dim, int px, int py, int pz, int qx, int qy, int qz);
+    double************ eri_map;
   private:
     void compute();
-    double**** ERI_mem;
+    double**** eri_map2;
     void Orderirrep(int &norbs, double *E, int **MO, int electrons);
     double n_order_;
     int electrons;
@@ -77,6 +81,7 @@ class JelliumIntegrals{
     int orbitalMax;
     int nmax = 0;
     double pi;
+    bool fast_eri;
     /// Options object
     Options & options_;
     //  Electron integral functions
