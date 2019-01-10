@@ -30,7 +30,6 @@
 # include <math.h>
 # include <time.h>
 # include <string.h>
-#include<unordered_map>
 
 #include <psi4/libplugin/plugin.h>
 #include <psi4/psi4-dec.h>
@@ -71,6 +70,7 @@ JelliumIntegrals::JelliumIntegrals(Options & options):
     orbitalMax = options.get_int("N_BASIS_FUNCTIONS");
     electrons = options.get_int("N_ELECTRONS");
     fast_eri = options.get_bool("FAST_ERI");
+    symmetry = options.get_bool("SYMMETRY");
     common_init();
     compute();
 }
@@ -81,452 +81,530 @@ JelliumIntegrals::~JelliumIntegrals()
 }
 
 void JelliumIntegrals::common_init() {
-
+    eri_map2 = nullptr;
     
 }
 
 void JelliumIntegrals::compute() {
 
- //printf ( "\n" );
-  //printf ( "LEGENDRE_RULE_FAST:\n" );
-  //printf ( "  Normal end of execution.\n" );
+        //printf ( "\n" );
+        //printf ( "LEGENDRE_RULE_FAST:\n" );
+        //printf ( "  Normal end of execution.\n" );
 
-  //printf ( "\n" );
-  double a = 0.0;
-  double b = 1.0;
-  int n = options_.get_int("N_GRID_POINTS");
-  double *x;
-  int *mu, *nu, *sig, *lam;
+        //printf ( "\n" );
+        double a = 0.0;
+        double b = 1.0;
+        int n = options_.get_int("N_GRID_POINTS");
+        double *x;
+        int *mu, *nu, *sig, *lam;
 
-  x   = (double *)malloc(n*sizeof(double));
-  w   = (double *)malloc(n*sizeof(double));
-  grid_points = x; 
- 
-  sig  = (int*)malloc(3*sizeof(int));
-  lam  = (int*)malloc(3*sizeof(int));
+        x   = (double *)malloc(n*sizeof(double));
+        w   = (double *)malloc(n*sizeof(double));
+        grid_points = x; 
 
-  nmax=30;
-  //TODO: make this vector irrep from the get go
-  std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
-  MO  = MAT_INT(3*nmax*nmax*nmax,3);
-  OrderPsis3D(nmax, ORBE->pointer(), MO);
-  Orderirrep(nmax, ORBE->pointer(), MO, electrons);
-  Legendre tmp;
-  //  Constructe grid and weights, store them to the vectors x and w, respectively.
-  //  This is one of John Burkhardt's library functions
-  tmp.legendre_compute_glr(n, x, w);
+        sig  = (int*)malloc(3*sizeof(int));
+        lam  = (int*)malloc(3*sizeof(int));
 
-  //eri_map = (double************)malloc(nmax*sizeof(double***********));
-  // Scale the grid to start at value a and end at value b. 
-  // We want our integration range to go from 0 to 1, so a = 0, b = 1
-  // This is also one of John Burkhardt's library functions
-  tmp.rescale( a, b, n, x, w);
-  for(int i = 0; i < n; i++){
-    //  printf("weight %d\t%f\n",i,w[i]);
-  }
-  // build g tensor g[npq] * w[n]
-  outfile->Printf("\n");
-  outfile->Printf("    build g tensor................"); fflush(stdout);
-  g_tensor = std::shared_ptr<Vector>( new Vector(n * 2 * (nmax + 1) * 2 * (nmax + 1)));
-  for (int pt = 0; pt < n; pt++) {
-      double xval = x[pt];
-      for (int p = 0; p <= nmax*2; p++) {
-          for (int q = 0; q <= nmax*2; q++) {
-              g_tensor->pointer()[pt*2*nmax*2*nmax+p*2*nmax+q] = g_pq(p, q, xval) * w[pt];
-          }
-      }
-  }
-  for( int i = 0; i < n;i++){
-     //outfile->Printf("%d\t%f\n",i,g_tensor->pointer()[i*nmax*nmax*4+2*nmax*2]);
-  }
-  outfile->Printf("done.\n");
-  // build sqrt(x*x+y*y+z*z)
-  outfile->Printf("    build sqrt tensor............."); fflush(stdout);
-  sqrt_tensor = std::shared_ptr<Vector>(new Vector(n*n*n));
-  double * s_p = sqrt_tensor->pointer();
-  for (int i = 0; i < n; i++) {
-      double xval = x[i];
-      for (int j = 0; j < n; j++) {
-          double yval = x[j];
-          for (int k = 0; k < n; k++) {
-              double zval = x[k];
-              double val = sqrt(xval*xval+yval*yval+zval*zval);
-              s_p[i*n*n + j*n + k] = 1.0/val;
-          }
-      }
-  }
-  outfile->Printf("done.\n");
+        nmax=30;
+        //TODO: make this vector irrep from the get go
+        std::shared_ptr<Vector> ORBE = std::shared_ptr<Vector>( new Vector(3*nmax*nmax*nmax));//VEC_INT(3*nmax*nmax*nmax);
+        MO  = MAT_INT(3*nmax*nmax*nmax,3);
+        OrderPsis3D(nmax, ORBE->pointer(), MO);
+
+        //set up symmetry
+        if(symmetry){
+            Orderirrep(nmax, ORBE->pointer(), MO, electrons);
+        }else{
+            nirrep_ = 1;
+            nsopi_ = (int*)malloc(sizeof(int));
+            Eirrep_ = (int*)malloc(sizeof(int));
+            //TODO if not restricted this wont work
+            nsopi_[0] = orbitalMax;
+            Eirrep_[0] = electrons/2;
+        }
+
+        Legendre tmp;
+        //  Constructe grid and weights, store them to the vectors x and w, respectively.
+        //  This is one of John Burkhardt's library functions
+        tmp.legendre_compute_glr(n, x, w);
+
+        // Scale the grid to start at value a and end at value b. 
+        // We want our integration range to go from 0 to 1, so a = 0, b = 1
+        // This is also one of John Burkhardt's library functions
+        tmp.rescale( a, b, n, x, w);
+
+        // build g tensor g[npq] * w[n]
+        outfile->Printf("\n");
+        outfile->Printf("    build g tensor................"); fflush(stdout);
+        g_tensor = std::shared_ptr<Vector>( new Vector(n * 2 * (nmax + 1) * 2 * (nmax + 1)));
+        for (int pt = 0; pt < n; pt++) {
+                double xval = x[pt];
+                for (int p = 0; p <= nmax*2; p++) {
+                        for (int q = 0; q <= nmax*2; q++) {
+                                g_tensor->pointer()[pt*2*nmax*2*nmax+p*2*nmax+q] = g_pq(p, q, xval) * w[pt];
+                        }
+                }
+        }
+        outfile->Printf("done.\n");
+
+        // build sqrt(x*x+y*y+z*z)
+        outfile->Printf("    build sqrt tensor............."); fflush(stdout);
+        sqrt_tensor = std::shared_ptr<Vector>(new Vector(n*n*n));
+        double * s_p = sqrt_tensor->pointer();
+        for (int i = 0; i < n; i++) {
+                double xval = x[i];
+                for (int j = 0; j < n; j++) {
+                        double yval = x[j];
+                        for (int k = 0; k < n; k++) {
+                                double zval = x[k];
+                                double val = sqrt(xval*xval+yval*yval+zval*zval);
+                                s_p[i*n*n + j*n + k] = 1.0/val;
+                        }
+                }
+        }
+        outfile->Printf("done.\n");
 
 
-  unsigned long start_pq = clock();
-  // now, compute (P|Q)
-  outfile->Printf("    build (P|Q)..................."); fflush(stdout);
-  PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
-  for (int i = 0; i < 2*nmax+1; i++) {
-      PQmap[i] = (int **)malloc((2*nmax+1)*sizeof(int*));
-      for (int j = 0; j < 2*nmax+1; j++) {
-          PQmap[i][j] = (int *)malloc((2*nmax+1)*sizeof(int));
-          for (int k = 0; k < 2*nmax+1; k++) {
-              PQmap[i][j][k] = 999;
-          }
-      }
-  }
-  int Pdim = 0;
-  for (int px = 0; px < 2*nmax+1; px++) {
-      for (int py = 0; py < 2*nmax+1; py++) {
-          for (int pz = 0; pz < 2*nmax+1; pz++) {
-              PQmap[px][py][pz] = Pdim;
-              Pdim++;
-          }
-      }
-  }
-  //printf("1, -2, -3, 4, 2, 0\n"); 
-  //pq_int(orbitalMax, x, w, 1, -2, -3, 4, 2, 0);
-  //exit(1);
-  PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
-  double ** PQ_p = PQ->pointer();
-  //printf("pdim %d\n",Pdim);
-  Ke = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
-  NucAttrac = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
-  //printf("hello world %d\n", omp_get_max_threads());
-  #pragma omp parallel
-  {
-  #pragma omp for schedule(dynamic) nowait 
-  for (int px = 0; px < 2*nmax+1; px++) {
-      for (int qx = px; qx < 2*nmax+1; qx++) {
+        unsigned long start_pq = clock();
+        // now, compute (P|Q)
+        outfile->Printf("    build (P|Q)..................."); fflush(stdout);
+        PQmap = (int ***)malloc((2*nmax+1)*sizeof(int**));
+        for (int i = 0; i < 2*nmax+1; i++) {
+                PQmap[i] = (int **)malloc((2*nmax+1)*sizeof(int*));
+                for (int j = 0; j < 2*nmax+1; j++) {
+                        PQmap[i][j] = (int *)malloc((2*nmax+1)*sizeof(int));
+                        for (int k = 0; k < 2*nmax+1; k++) {
+                                PQmap[i][j][k] = 999;
+                        }
+                }
+        }
+        int Pdim = 0;
+        for (int px = 0; px < 2*nmax+1; px++) {
+                for (int py = 0; py < 2*nmax+1; py++) {
+                        for (int pz = 0; pz < 2*nmax+1; pz++) {
+                                PQmap[px][py][pz] = Pdim;
+                                Pdim++;
+                        }
+                }
+        }
+        //printf("1, -2, -3, 4, 2, 0\n"); 
+        //pq_int(orbitalMax, x, w, 1, -2, -3, 4, 2, 0);
 
-          int pq_x = px*(2*nmax+1) + qx;
+        PQ = std::shared_ptr<Matrix>(new Matrix(Pdim,Pdim));
+        double ** PQ_p = PQ->pointer();
+        Ke = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
+        NucAttrac = std::shared_ptr<Matrix>(new Matrix(nirrep_,nsopi_,nsopi_));
 
-          for (int py = 0; py < 2*nmax+1; py++) {
-              for (int qy = py; qy < 2*nmax+1; qy++) {
+        #pragma omp parallel
+        {
+        #pragma omp for schedule(dynamic) nowait 
+                for (int px = 0; px < 2*nmax+1; px++) {
+                        for (int qx = px; qx < 2*nmax+1; qx++) {
 
-                  int pq_y = py*(2*nmax+1) + qy;
-                  if ( pq_x > pq_y ) continue;
+                                int pq_x = px*(2*nmax+1) + qx;
 
-                  for (int pz = 0; pz < 2*nmax+1; pz++) {
-                      for (int qz = pz; qz < 2*nmax+1; qz++) {
+                                for (int py = 0; py < 2*nmax+1; py++) {
+                                        for (int qy = py; qy < 2*nmax+1; qy++) {
 
-                          int pq_z = pz*(2*nmax+1) + qz;
-                          if ( pq_y > pq_z ) continue;
+                                                int pq_y = py*(2*nmax+1) + qy;
+                                                if ( pq_x > pq_y ) continue;
 
-                          //if ( P > Q ) continue;
+                                                for (int pz = 0; pz < 2*nmax+1; pz++) {
+                                                        for (int qz = pz; qz < 2*nmax+1; qz++) {
+
+                                                                int pq_z = pz*(2*nmax+1) + qz;
+                                                                if ( pq_y > pq_z ) continue;
+
+                                                                //if ( P > Q ) continue;
+                                                                if((px+qx)%2==0 && (py+qy)%2==0 && (pz+qz)%2==0){
+                                                                        double dum = pq_int_new(n, px, py, pz, qx, qy, qz);
+                                                                        int P,Q;
+
+                                                                        // start 
+                                                                        P = PQmap[px][py][pz];
+                                                                        Q = PQmap[qx][qy][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][py][pz];
+                                                                        Q = PQmap[px][qy][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[px][qy][pz];
+                                                                        Q = PQmap[qx][py][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][qy][pz];
+                                                                        Q = PQmap[px][py][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[px][py][qz];
+                                                                        Q = PQmap[qx][qy][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][py][qz];
+                                                                        Q = PQmap[px][qy][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[px][qy][qz];
+                                                                        Q = PQmap[qx][py][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][qy][qz];
+                                                                        Q = PQmap[px][py][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        // pxqx - pyqy
+
+                                                                        P = PQmap[py][px][pz];
+                                                                        Q = PQmap[qy][qx][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[py][qx][pz];
+                                                                        Q = PQmap[qy][px][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][px][pz];
+                                                                        Q = PQmap[py][qx][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][qx][pz];
+                                                                        Q = PQmap[py][px][qz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[py][px][qz];
+                                                                        Q = PQmap[qy][qx][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[py][qx][qz];
+                                                                        Q = PQmap[qy][px][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][px][qz];
+                                                                        Q = PQmap[py][qx][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][qx][qz];
+                                                                        Q = PQmap[py][px][pz];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        // now begins pxqx < pyqy < pzqz
+
+                                                                        P = PQmap[pz][px][py];
+                                                                        Q = PQmap[qz][qx][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[pz][qx][py];
+                                                                        Q = PQmap[qz][px][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[pz][px][qy];
+                                                                        Q = PQmap[qz][qx][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[pz][qx][qy];
+                                                                        Q = PQmap[qz][px][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][px][py];
+                                                                        Q = PQmap[pz][qx][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][qx][py];
+                                                                        Q = PQmap[pz][px][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][px][qy];
+                                                                        Q = PQmap[pz][qx][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][qx][qy];
+                                                                        Q = PQmap[pz][px][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        // pxqx - pyqy
+
+                                                                        P = PQmap[pz][py][px];
+                                                                        Q = PQmap[qz][qy][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[pz][py][qx];
+                                                                        Q = PQmap[qz][qy][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[pz][qy][px];
+                                                                        Q = PQmap[qz][py][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[pz][qy][qx];
+                                                                        Q = PQmap[qz][py][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][py][px];
+                                                                        Q = PQmap[pz][qy][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][py][qx];
+                                                                        Q = PQmap[pz][qy][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][qy][px];
+                                                                        Q = PQmap[pz][py][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qz][qy][qx];
+                                                                        Q = PQmap[pz][py][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        // now begins last set of 16
+
+                                                                        P = PQmap[px][pz][py];
+                                                                        Q = PQmap[qx][qz][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][pz][py];
+                                                                        Q = PQmap[px][qz][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[px][pz][qy];
+                                                                        Q = PQmap[qx][qz][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][pz][qy];
+                                                                        Q = PQmap[px][qz][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[px][qz][py];
+                                                                        Q = PQmap[qx][pz][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][qz][py];
+                                                                        Q = PQmap[px][pz][qy];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[px][qz][qy];
+                                                                        Q = PQmap[qx][pz][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qx][qz][qy];
+                                                                        Q = PQmap[px][pz][py];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        // pxqx - pyqy
+
+                                                                        P = PQmap[py][pz][px];
+                                                                        Q = PQmap[qy][qz][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[py][pz][qx];
+                                                                        Q = PQmap[qy][qz][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][pz][px];
+                                                                        Q = PQmap[py][qz][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][pz][qx];
+                                                                        Q = PQmap[py][qz][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[py][qz][px];
+                                                                        Q = PQmap[qy][pz][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[py][qz][qx];
+                                                                        Q = PQmap[qy][pz][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][qz][px];
+                                                                        Q = PQmap[py][pz][qx];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                        P = PQmap[qy][qz][qx];
+                                                                        Q = PQmap[py][pz][px];
+                                                                        PQ_p[P][Q] = dum;
+
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+        unsigned long end_pq = clock();
+        outfile->Printf("done.\n");fflush(stdout);
+        outfile->Printf("\n");
+        outfile->Printf("    time for (P|Q) construction:                %6.1f s\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
+        outfile->Printf("\n");
+        
+        //testing a small pq setup
+        int offset = 0;
+        for(int i = 0; i <=2*nmax; i++){
+           for(int j = i; j <=2*nmax; j++){
+               if((i+j)%2==0){
+                  offset++;
+               }
+           }
+        }
+        int count = 0;
+        int count2 = 0;
+        int P = 0;
+        int Q = 0;
+        //printf("%d \n",offset*offset*offset);
+
+        //Creating small PQ
+        //TODO disabled for now due to symmetry assumtions made
+        PQ_small = (double*)malloc(offset*offset*offset*sizeof(double));
+        for(int px = 0; px <= 2*nmax; px++){
+           for(int qx = px; qx <= 2*nmax; qx++){
+              for(int py = 0; py <= 2*nmax; py++){
+                 for(int qy = py; qy <= 2*nmax; qy++){
+                    for(int pz = 0; pz <= 2*nmax; pz++){
+                       for(int qz = pz; qz <= 2*nmax; qz++){
+                          //count2++;
+                          //if(px == px_t && py == py_t && pz == pz_t && qx == qx_t && qy == qy_t && qz == qz_t){
+
+                          //    printf("%d \n",count);}
                           if((px+qx)%2==0 && (py+qy)%2==0 && (pz+qz)%2==0){
-                          double dum = pq_int_new(n, px, py, pz, qx, qy, qz);
-//                         printf("dum %f",dum); 
-                          int P,Q;
-
-                          // start 
-                          P = PQmap[px][py][pz];
-                          Q = PQmap[qx][qy][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][py][pz];
-                          Q = PQmap[px][qy][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[px][qy][pz];
-                          Q = PQmap[qx][py][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][qy][pz];
-                          Q = PQmap[px][py][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[px][py][qz];
-                          Q = PQmap[qx][qy][pz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][py][qz];
-                          Q = PQmap[px][qy][pz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[px][qy][qz];
-                          Q = PQmap[qx][py][pz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][qy][qz];
-                          Q = PQmap[px][py][pz];
-                          PQ_p[P][Q] = dum;
-
-                          // pxqx - pyqy
-
-                          P = PQmap[py][px][pz];
-                          Q = PQmap[qy][qx][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[py][qx][pz];
-                          Q = PQmap[qy][px][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][px][pz];
-                          Q = PQmap[py][qx][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][qx][pz];
-                          Q = PQmap[py][px][qz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[py][px][qz];
-                          Q = PQmap[qy][qx][pz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[py][qx][qz];
-                          Q = PQmap[qy][px][pz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][px][qz];
-                          Q = PQmap[py][qx][pz];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][qx][qz];
-                          Q = PQmap[py][px][pz];
-                          PQ_p[P][Q] = dum;
-
-                          // now begins pxqx < pyqy < pzqz
-
-                          P = PQmap[pz][px][py];
-                          Q = PQmap[qz][qx][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[pz][qx][py];
-                          Q = PQmap[qz][px][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[pz][px][qy];
-                          Q = PQmap[qz][qx][py];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[pz][qx][qy];
-                          Q = PQmap[qz][px][py];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][px][py];
-                          Q = PQmap[pz][qx][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][qx][py];
-                          Q = PQmap[pz][px][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][px][qy];
-                          Q = PQmap[pz][qx][py];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][qx][qy];
-                          Q = PQmap[pz][px][py];
-                          PQ_p[P][Q] = dum;
-
-                          // pxqx - pyqy
-
-                          P = PQmap[pz][py][px];
-                          Q = PQmap[qz][qy][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[pz][py][qx];
-                          Q = PQmap[qz][qy][px];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[pz][qy][px];
-                          Q = PQmap[qz][py][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[pz][qy][qx];
-                          Q = PQmap[qz][py][px];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][py][px];
-                          Q = PQmap[pz][qy][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][py][qx];
-                          Q = PQmap[pz][qy][px];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][qy][px];
-                          Q = PQmap[pz][py][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qz][qy][qx];
-                          Q = PQmap[pz][py][px];
-                          PQ_p[P][Q] = dum;
-
-                          // now begins last set of 16
-
-                          P = PQmap[px][pz][py];
-                          Q = PQmap[qx][qz][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][pz][py];
-                          Q = PQmap[px][qz][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[px][pz][qy];
-                          Q = PQmap[qx][qz][py];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][pz][qy];
-                          Q = PQmap[px][qz][py];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[px][qz][py];
-                          Q = PQmap[qx][pz][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][qz][py];
-                          Q = PQmap[px][pz][qy];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[px][qz][qy];
-                          Q = PQmap[qx][pz][py];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qx][qz][qy];
-                          Q = PQmap[px][pz][py];
-                          PQ_p[P][Q] = dum;
-
-                          // pxqx - pyqy
-
-                          P = PQmap[py][pz][px];
-                          Q = PQmap[qy][qz][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[py][pz][qx];
-                          Q = PQmap[qy][qz][px];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][pz][px];
-                          Q = PQmap[py][qz][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][pz][qx];
-                          Q = PQmap[py][qz][px];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[py][qz][px];
-                          Q = PQmap[qy][pz][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[py][qz][qx];
-                          Q = PQmap[qy][pz][px];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][qz][px];
-                          Q = PQmap[py][pz][qx];
-                          PQ_p[P][Q] = dum;
-
-                          P = PQmap[qy][qz][qx];
-                          Q = PQmap[py][pz][px];
-                          PQ_p[P][Q] = dum;
-
+                              P = PQmap[px][py][pz];
+                              Q = PQmap[qx][qy][qz];
+                              PQ_small[count] = PQ_p[P][Q];
+                              count++;
                           }
-                      }
-                  }
+                       }
+                    }
+                 }
               }
-          }
-      }
-  }
-  }
-  unsigned long end_pq = clock();
-  outfile->Printf("done.\n");fflush(stdout);
+           }
+        }
+        offset_pq = 0;
+        for(int i = 0; i <=2*nmax; i++){
+           for(int j = i; j <=2*nmax; j++){
+               if((i+j)%2==0){
+                  offset_pq++;
+               }
+           }
+        }
+        //outfile->Printf("canonical integrals");
 
-  outfile->Printf("\n");
-  outfile->Printf("    time for (P|Q) construction:                %6.1f s\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
-  outfile->Printf("\n");
-  //outfile->Printf("canonical integrals");
+        // Four nested loops to compute lower triange of electron repulsion integrals - roughly have of the non-unique integrals
+        // will not be computed, but this is still not exploiting symmetry fully
+        outfile->Printf("    build potential integrals.....");fflush(stdout);
+        unsigned long start = clock();
+        #pragma omp parallel
+        {
+        #pragma omp for schedule(dynamic) nowait
+                for(int h = 0; h < nirrep_;h++){
+                        int offset = 0;
+                        double** Ke_p = Ke->pointer(h);
+                        for(int i = 0; i < h; i ++){
+                                offset += nsopi_[i];
+                        }
+                        double** Nu_p = NucAttrac->pointer(h);
+                        for (int i=0; i< nsopi_[h]; i++) {
+                                int* mu;
+                                int* nu;
+                                mu = MO[i+offset];
 
-  // Four nested loops to compute lower triange of electron repulsion integrals - roughly have of the non-unique integrals
-  // will not be computed, but this is still not exploiting symmetry fully
-  outfile->Printf("    build potential integrals.....");fflush(stdout);
-  unsigned long start = clock();
-  #pragma omp parallel
-  {
-      #pragma omp for schedule(dynamic) nowait
-      for(int h = 0; h < nirrep_;h++){
-          int offset = 0;
-          double** Ke_p = Ke->pointer(h);
-          for(int i = 0; i < h; i ++){
-              offset += nsopi_[i];
-          }
-          double** Nu_p = NucAttrac->pointer(h);
-          for (int i=0; i< nsopi_[h]; i++) {
-              int* mu;
-              int* nu;
-              mu = MO[i+offset];
+                                for (int j=i; j< nsopi_[h]; j++) {
+                                        nu = MO[j+offset];
 
-              for (int j=i; j< nsopi_[h]; j++) {
-                  nu = MO[j+offset];
+                                        // Kinetic Energy Integrals - already computed and stored in ORBE vector    
+                                        if (i==j) { 
+                                                Ke_p[i][j] = 0.5*ORBE->pointer()[i+offset];
+                                        }
+                                        // Nuclear-attraction Integrals
+                                        double dum = Vab_Int_new(n, x, w, mu, nu);
+                                        Nu_p[i][j] = dum;
+                                        Nu_p[j][i] = dum;
 
-                  // Kinetic Energy Integrals - already computed and stored in ORBE vector    
-                  if (i==j) { 
-                      Ke_p[i][j] = 0.5*ORBE->pointer()[i+offset];
-                  }
-                  // Nuclear-attraction Integrals
-                  double dum = Vab_Int_new(n, x, w, mu, nu);
-                  Nu_p[i][j] = dum;
-                  Nu_p[j][i] = dum;
-
-              }
-          }
-          //offset += nsopi_[h];
-      }
-  }
-  unsigned long end = clock();
-  outfile->Printf("done.\n");fflush(stdout);
-  outfile->Printf("\n");
-  outfile->Printf("    time for potential integral construction:   %6.1f s\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
-  outfile->Printf("\n");
-
-  // Compute self energy
-  selfval = E0_Int(n, x, w);
+                                }
+                        }
+                        //offset += nsopi_[h];
+                }
+        }
+        unsigned long end = clock();
+        outfile->Printf("done.\n");fflush(stdout);
+        outfile->Printf("\n");
+        outfile->Printf("    time for potential integral construction:   %6.1f s\n",(double)(end-start)/CLOCKS_PER_SEC); fflush(stdout);
+        outfile->Printf("\n");
+        // Compute self energy
+        selfval = E0_Int(n, x, w);
+        //PQ = NULL;
+        sqrt_tensor = NULL;
+        for(int j = 0; j < 2*nmax; j++){
+        int pqx = 0;
+        int tmp = 1;
+        for(int i = 0; i < j; i++){
+            pqx += nmax+tmp;
+            if(i%2==0){
+               tmp--;
+            }
+        }
+        if(j%2==0){
+           //printf("test: %d\n",(nmax*j+j-(j*j)/4));
+           //printf("j: %d pqx: %d\n",j,pqx);
+        }
+        if(j%2==1){
+           //printf("test: %d\n",(nmax*j)-(j*j)/4+3/4*j+1/2);
+           //printf("j: %d pqx: %d\n",j,pqx);
+        }
+        }
 
 }
 
+//Commented out code broken by removing symmetry
 double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
     if((MO[a][0]+MO[b][0]+MO[c][0]+MO[d][0])%2==1){
-      return 0;
+      return 0.0;
     }
     
-    if(fast_eri){
-    if(iter < 2){
-       #pragma omp critical 
-       { 
-       if(eri_map2 == nullptr){
-          eri_map2 = (double****)malloc(orbitalMax*sizeof(double***));
-          for(int i = 0; i < orbitalMax; i++){
-             eri_map2[i] = nullptr;
-          }
-       }
-       if(eri_map2[a] == nullptr){
-          eri_map2[a] = (double***)malloc(orbitalMax*sizeof(double**));
-          for(int i = 0; i < orbitalMax; i++){
-             eri_map2[a][i] = nullptr;
-          }
-       }
-       if(eri_map2[a][b] == nullptr){
-          eri_map2[a][b] = (double**)malloc(orbitalMax*sizeof(double*));
-          for(int i = 0; i < orbitalMax; i++){
-             eri_map2[a][b][i] = nullptr;
-          }
-       }
-       if(eri_map2[a][b][c] == nullptr){
-          eri_map2[a][b][c] = (double*)malloc(orbitalMax*sizeof(double));
-          for(int i = 0; i < orbitalMax; i++){
-             eri_map2[a][b][c][i] = -999;
-          }
-       }
-       }
-    }
-    if(eri_map2[a][b][c][d] != -999){return eri_map2[a][b][c][d];}
+    //if(fast_eri){
+    //if(iter < 2){
+    //   #pragma omp critical 
+    //   { 
+    //   if(eri_map2 == nullptr){
+    //      eri_map2 = (double****)malloc(orbitalMax*sizeof(double***));
+    //      for(int i = 0; i < orbitalMax; i++){
+    //         eri_map2[i] = nullptr;
+    //      }
+    //   }
+    //   if(eri_map2[a] == nullptr){
+    //      eri_map2[a] = (double***)malloc(orbitalMax*sizeof(double**));
+    //      for(int i = 0; i < orbitalMax; i++){
+    //         eri_map2[a][i] = nullptr;
+    //      }
+    //   }
+    //   if(eri_map2[a][b] == nullptr){
+    //      eri_map2[a][b] = (double**)malloc(orbitalMax*sizeof(double*));
+    //      for(int i = 0; i < orbitalMax; i++){
+    //         eri_map2[a][b][i] = nullptr;
+    //      }
+    //   }
+    //   if(eri_map2[a][b][c] == nullptr){
+    //      eri_map2[a][b][c] = (double*)malloc(orbitalMax*sizeof(double));
+    //      for(int i = 0; i < orbitalMax; i++){
+    //         eri_map2[a][b][c][i] = -999;
+    //      }
+    //   }
+    //   }
+    //}
+    //if(eri_map2[a][b][c][d] != -999){return eri_map2[a][b][c][d];}
 
-    double tmp = ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+    //double tmp = ERI_unrolled(MO[a], MO[b], MO[c], MO[d]);
   
-    eri_map2[a][b][c][d] = tmp;
+    //eri_map2[a][b][c][d] = tmp;
 
-    return tmp;
-    
-    }
+    //return tmp;
+    //
+    //}
+    //double test = ERI_unrolled(MO[a], MO[b], MO[c], MO[d]);
+    //printf("%f\n",test);
+    //return ERI_unrolled(MO[a], MO[b], MO[c], MO[d]);
 
-    return ERI_unrolled(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+    //testing
+    return ERI_unrolled_test(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+
 }
 
 double JelliumIntegrals::g_pq(int p, int q, double x) {
@@ -598,7 +676,6 @@ double JelliumIntegrals::Vab_Int_new(int dim, double *xa, double *w, int *a, int
     Vab = 0.0;
     int P, Q;
     double ** PQ_p = PQ->pointer(); 
-    //make sure to check that these integrals are correct
 
     //    Cos[px x1] Cos[py y1] Cos[pz z1]
     //Vab  += pq_int_new(dim, px, py, pz,  0,  0,  0);
@@ -660,7 +737,7 @@ double JelliumIntegrals::E0_Int(int dim, double *xa, double *w) {
   return  pq_int(dim, xa, w, 0, 0, 0, 0, 0, 0);
 }
 
-double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
+double JelliumIntegrals::ERI_unrolled_test(int * a, int * b, int * c, int * d, double ** PQ, int *** PQmap) {
   //x1[0] = ax-bx, x1[1] = ax+bx
   int* x1 = (int *)malloc(3*sizeof(int));
   int* x2 = (int *)malloc(3*sizeof(int));
@@ -955,6 +1032,376 @@ double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d, double
 
   return eri_val;
 
+} 
+
+//not used for now as this uses small_pq which does not work yet for the symmetry disabled version
+double JelliumIntegrals::ERI_unrolled(int * a, int * b, int * c, int * d) {
+  //x1[0] = ax-bx, x1[1] = ax+bx
+  int* x1 = (int *)malloc(2*sizeof(int));
+  int* x2 = (int *)malloc(2*sizeof(int));
+  int* y1 = (int *)malloc(2*sizeof(int));
+  int* y2 = (int *)malloc(2*sizeof(int));
+  
+int* z1 = (int *)malloc(2*sizeof(int));
+  int* z2 = (int *)malloc(2*sizeof(int));
+ 
+  
+  x1[0] = abs(a[0] - b[0]);
+  y1[0] = abs(a[1] - b[1]);
+  z1[0] = abs(a[2] - b[2]);
+
+  x1[1] = a[0] + b[0];
+  y1[1] = a[1] + b[1];
+  z1[1] = a[2] + b[2];
+
+  //x1[0] abs(= cx-dx, x1)[1] = cx+dx
+  x2[0] = abs(c[0] - d[0]);
+  y2[0] = abs(c[1] - d[1]);
+  z2[0] = abs(c[2] - d[2]);
+
+  x2[1] = c[0] + d[0];
+  y2[1] = c[1] + d[1];
+  z2[1] = c[2] + d[2];
+  // Generate all combinations of phi_a phi_b phi_c phi_d in expanded cosine form
+
+  //double //eri_val = 0.0;
+  double eri_val_test = 0.0;
+
+  //int //Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+
+  //int //P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[0],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[0],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[0],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[0],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[0],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[0],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[0],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[0],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[0],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[0],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[0],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[0],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[0],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[0],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[0],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[0],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[0],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[0],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[0],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[0],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[0] ][ y2[0] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[0],x1[0],y1[1],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[0],x1[1],y1[1],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[0],x1[0],y1[1],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[0],x1[1],y1[1],z1[1]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[0],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[0],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[0],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[0],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[0],x1[0],y1[1],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[0],x1[1],y1[1],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[0] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[0],x1[0],y1[1],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[0],x1[1],y1[1],z1[1]);
+
+//Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[1],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[1],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[1],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[1],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[1],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[1],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[1],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[1],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[1],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[1],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[1],x1[0],y1[0],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[1],x1[1],y1[0],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[1],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[1],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[0] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[1],x1[0],y1[1],z1[0]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[0] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[1],x1[1],y1[1],z1[0]);
+
+//Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[1],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[1],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[1],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[1],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[0] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[0],z2[1],x1[0],y1[1],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[0],z2[1],x1[1],y1[1],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[0] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[0],z2[1],x1[0],y1[1],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[0],z2[1],x1[1],y1[1],z1[1]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[1],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[1],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[0] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[1],x1[0],y1[0],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[0] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[1],x1[1],y1[0],z1[1]);
+
+//Q = PQmap[ x2[0] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[0],y2[1],z2[1],x1[0],y1[1],z1[1]);
+
+//P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[0],y2[1],z2[1],x1[1],y1[1],z1[1]);
+
+//Q = PQmap[ x2[1] ][ y2[1] ][ z2[1] ];
+
+//P = PQmap[ x1[0] ][ y1[1] ][ z1[1] ];
+  //eri_val -= PQ[P][Q];
+  eri_val_test -= smallpq(x2[1],y2[1],z2[1],x1[0],y1[1],z1[1]);
+
+//  P = PQmap[ x1[1] ][ y1[1] ][ z1[1] ];
+  //eri_val += PQ[P][Q];
+  eri_val_test += smallpq(x2[1],y2[1],z2[1],x1[1],y1[1],z1[1]);
+
+  free(x1);
+  free(x2);
+  free(y1);
+  free(y2);
+  free(z1);
+  free(z2);
+
+  //if(eri_val != eri_val_test){
+  //   printf("not the same\n");
+  //   printf("true %f\n",eri_val);
+  //   printf("mine %f\n",eri_val_test);
+  ////   //printf("px: %d py: %d pz: %d qx: %d qy: %d qz: %d \n",x2[0],y2[0],z2[0],x1[0],y1[0],z1[0]);
+  //}
+  return eri_val_test;
+
 }
 
 // This function implements Eq. 4.7 and 4.8 in Peter Gills paper on 2-electrons in a cube
@@ -1114,6 +1561,8 @@ void JelliumIntegrals::OrderPsis3D(int &norbs, double *E, int **MO) {
     //exit(0);
     norbs = new_nmax;
 }
+
+//create irreps
 void JelliumIntegrals::Orderirrep(int &norbs, double *E, int **MO, int electrons) {
     int ee = 0;
     int eo = 0;
@@ -1296,6 +1745,103 @@ int ** JelliumIntegrals::MAT_INT(int dim1, int dim2){
 
 int JelliumIntegrals::get_nmax(){
     return nmax;
+}
+
+//to get the 1 electron integral result from the small pq structure
+double JelliumIntegrals::smallpq(int px, int py, int pz, int qx, int qy, int qz){
+        int px_t = px;
+        int py_t = py;
+        int pz_t = pz;
+        int qx_t = qx;
+        int qy_t = qy;
+        int qz_t = qz;
+        if(qx_t < px_t){
+           px_t = qx_t;
+           qx_t = px;
+        }
+        if(qy_t < py_t){
+           py_t = qy_t;
+           qy_t = py;
+        }
+        if(qz_t < pz_t){
+           pz_t = qz_t;
+           qz_t = pz;
+        }
+        //int test = 0;
+        int pqx = 0;
+        //for(int i = 0; i < px_t; i++){
+        //   for(int j = i; j <= 2*nmax; j++){
+        //       if((i+j)%2==0){
+        //       pqx++;
+        //       }
+        //   }
+        //}
+        //pqx = 0;
+        //int tmp = 1;
+        if(px_t%2==0){
+           //pqx = (nmax*px_t+(1-px_t/2)*px_t/2)+px_t/2;
+           pqx = (nmax*px_t+px_t-(px_t*px_t)/4);
+        }
+        else{
+           pqx = (nmax*px_t)+(1-px_t/2)*(px_t-1)/2+1;
+        }
+        //for(int i = 0; i < px_t; i++){
+        //    pqx += nmax+tmp;
+        //    if(i%2==0){
+        //       tmp--; 
+        //    }
+        //}
+        //printf("pqx: %d 2*nmax: %d px_t: %d\n",pqx,2*nmax,px_t);
+        pqx += (qx_t-px_t)/2;
+        //int pqy = 0;
+        //for(int i = 0; i < py_t; i++){
+        //   for(int j = i; j <= 2*nmax; j++){
+        //       if((i+j)%2==0){
+        //       pqy++;
+        //       }
+        //   }
+        //}
+        //tmp = 1;
+        int pqy = 0;
+        if(py_t%2==0){
+           //pqy = (nmax*py_t+(1-py_t/2)*py_t/2)+py_t/2;
+           pqy = (nmax*py_t+py_t-(py_t*py_t)/4);
+        }
+        else{
+           pqy = (nmax*py_t)+(1-py_t/2)*(py_t-1)/2+1;
+        }
+        //for(int i = 0; i < py_t; i++){
+        //    pqy += nmax+tmp;
+        //    if(i%2==0){
+        //       tmp--; 
+        //    }
+        //}
+        pqy += (qy_t-py_t)/2;
+        int pqz = 0;
+        //for(int i = 0; i < pz_t; i++){
+        //   for(int j = i; j <= 2*nmax; j++){
+        //       if((i+j)%2==0){
+        //       pqz++;
+        //       }
+        //   }
+        //}
+        //tmp = 1;
+        if(pz_t%2==0){
+           //pqz = (nmax*pz_t+(1-pz_t/2)*pz_t/2)+pz_t/2;
+           pqz = (nmax*pz_t+pz_t-(pz_t*pz_t)/4);
+        }
+        else{
+           pqz = (nmax*pz_t)+(1-pz_t/2)*(pz_t-1)/2+1;
+        }
+        //for(int i = 0; i < pz_t; i++){
+        //    pqz += nmax+tmp;
+        //    if(i%2==0){
+        //       tmp--; 
+        //    }
+        //}
+        pqz += (qz_t-pz_t)/2;
+        //test = pqx*offset_pq*offset_pq + pqy*offset_pq + pqz;
+        return PQ_small[pqx*offset_pq*offset_pq + pqy*offset_pq + pqz];
 }
 
 }} // end of namespaces

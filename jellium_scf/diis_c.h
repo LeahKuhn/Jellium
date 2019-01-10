@@ -34,7 +34,7 @@ class DIIS {
 
 public:
 
-    DIIS(int n);
+    DIIS(int n, int diis_max);
     ~DIIS();
 
     /// write Fock matrix disk

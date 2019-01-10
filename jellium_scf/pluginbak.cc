@@ -44,7 +44,6 @@
 #include "psi4/pragma.h"
 #include"JelliumIntegrals.h"
 #include "diis_c.h"
-#include "unordered_map"
 #ifdef _OPENMP
     #include<omp.h>
 #else
@@ -60,7 +59,7 @@ double dipole(int n, int m, double L);
 double pulse(double time);
 void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, double time);
 void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density_im, double time);
-void fourier(double* Vre, double* Vim);
+void fourier(double* Vre, double* Vfield);
 std::shared_ptr<JelliumIntegrals> Jell;
 std::shared_ptr<Matrix> h;
 std::shared_ptr<Matrix> F_re;
@@ -92,11 +91,11 @@ int read_options(std::string name, Options& options)
         options.add_double("TIME_LENGTH", 100);
         /*- The time step in au -*/
         options.add_double("TIME_STEP", 0.01);
-        /*- The density of the box in e/nm^3 -*/
-        options.add_double("DENSITY", 92);
-        /*- Enable ground state density output -*/
+        ///*- The density of the box in e/nm^3 -*/
+        //options.add_double("DENSITY", 92);    length and num electrons determines density
+        ///*- Enable ground state density output -*/
         options.add_bool("PRINT_DENSITY", false);
-        /*- Laser time length it au -*/
+        /*- Laser time length in au -*/
         options.add_double("LASER_TIME",4.134);
         /*- Laser frequency -*/
         options.add_double("LASER_FREQ",0.734986612218858);
@@ -104,6 +103,20 @@ int read_options(std::string name, Options& options)
         options.add_double("LASER_AMP",0.5); 
         /*- Fast eri? memory expensive -*/
         options.add_bool("FAST_ERI",false); 
+        /*- Do DIIS? -*/
+        options.add_bool("DIIS",true); 
+        /*- Number of Fock matrices to DIIS -*/
+        options.add_int("DIIS_NUM",10); 
+        /*- Fourier Transform? -*/
+        options.add_bool("FOURIER",false); 
+        /*- Use symmetry-*/
+        options.add_bool("SYMMETRY",true); 
+        /*- Fourier frequency minimum in ev-*/
+        options.add_double("FOURIER_MIN", 0); 
+        /*- Fourier frequency maximum in ev-*/
+        options.add_double("FOURIER_MAX", 5.0); 
+        /*- Change in Fourier frequency in ev-*/
+        options.add_double("FOURIER_DELTA",0.000001); 
     }
 
     return true;
@@ -133,15 +146,13 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     // factor for box size ... coded to give <rho> = 1
     //Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
     //boxlength = Lfac * M_PI;
-
+    
     //since box is already pi a.u. long
     double length_nm = options.get_double("length");
     Lfac = length_nm * 18.89725988 / M_PI;
-    boxlength = Lfac * M_PI;
-
+    
     //grabbing one-electon integrals from mintshelper
     Jell = (std::shared_ptr<JelliumIntegrals>)(new JelliumIntegrals(options));
-
     //one-electron kinetic energy integrals
     std::shared_ptr<Matrix> T = Jell->Ke;
     T->scale(1.0/Lfac/Lfac);
@@ -149,8 +160,6 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     //one-electron potential energy integrals
     std::shared_ptr<Matrix> V = Jell->NucAttrac;
     V->scale(1.0/Lfac);
-
-
 
     // print some information about this computation
     outfile->Printf("\n");
@@ -175,12 +184,13 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             Shalfp[i][i] = 1.0;
             Sp[i][i] = 1.0;
         }
-        //printf("%d\n",Jell->nsopi_[h]);
     }
-    std::shared_ptr<DIIS> diis (new DIIS(nso*nso));
+    std::shared_ptr<DIIS> diis (new DIIS(nso*nso, options.get_int("DIIS_NUM")));
+
     // build core hamiltonian
     V->scale(nelectron); 
     h->add(V);
+
     // fock matrix
     std::shared_ptr<Matrix> F = (std::shared_ptr<Matrix>)(new Matrix(h));
     std::shared_ptr<Matrix> Fim = (std::shared_ptr<Matrix>)(new Matrix(h));
@@ -194,6 +204,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
     // diagonalize core hamiltonian, get orbitals
     F->diagonalize(Ca,Feval);
+    Feval->print();
+
     // build density matrix core hamiltonian
     std::shared_ptr<Matrix> D (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
     #pragma omp parallel for 
@@ -204,15 +216,12 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             for(int nu = 0; nu < Jell->nsopi_[h]; ++nu){
                 double dum = 0.0;
                 for(int i = 0; i < Jell->Eirrep_[h]; ++i){
-                    //printf("%d %d %d \n",Jell->Eirrep_[h],nu,i);
                     dum += c_p[mu][i] * c_p[nu][i];
                 }
                 d_p[mu][nu] = dum;
             }
         }
     }
-    //printf("trace %f\n",D->trace());
-    //D->print(); exit(1);
     double energy = D->vector_dot(h) + D->vector_dot(F);
     outfile->Printf("    initial energy: %20.12lf\n",energy);
     outfile->Printf("\n");
@@ -235,10 +244,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     double dele = 0.0;
     double deld = 0.0;
   
-   
     do {
         K->zero();
-        printf("iter %d\n",iter);
         #pragma omp parallel for
         for (short hp = 0; hp < Jell->nirrep_; hp++) {
             short offp = 0;
@@ -281,6 +288,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             }
         }
         if(iter>2){Jell->iter = 2;}
+
         //create fock matrix from pieces
         F->copy(J);
         F->scale(2.0);
@@ -314,6 +322,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                 }
             }
         }
+
+        //turning fock matrix irreps into vector
         std::shared_ptr<Vector> tmp_F(new Vector(nso*nso));
         int tmp_vec_offset = 0;
         for(int h = 0; h < Jell->nirrep_; h++){
@@ -325,41 +335,45 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             }
             tmp_vec_offset += Jell->nsopi_[h];
         }
-        diis->WriteVector(&(tmp_F->pointer()[0]));
 
-        std::shared_ptr<Matrix> FDSmSDF(new Matrix("FDS-SDF",Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
-        std::shared_ptr<Matrix> DS(new Matrix("DS",Jell->nirrep_,Jell->nsopi_, Jell->nsopi_));
-        DS->gemm(false,false,1.0,D,S,0.0);
-        FDSmSDF->gemm(false,false,1.0,Fprime,DS,0.0);
-        DS.reset();
+        //DIIS procedure
+        if(options.get_bool("DIIS")){
+                diis->WriteVector(&(tmp_F->pointer()[0]));
 
-        std::shared_ptr<Matrix> SDF(FDSmSDF->transpose());
-        FDSmSDF->subtract(SDF);
+                std::shared_ptr<Matrix> FDSmSDF(new Matrix("FDS-SDF",Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+                std::shared_ptr<Matrix> DS(new Matrix("DS",Jell->nirrep_,Jell->nsopi_, Jell->nsopi_));
+                DS->gemm(false,false,1.0,D,S,0.0);
+                FDSmSDF->gemm(false,false,1.0,Fprime,DS,0.0);
+                DS.reset();
 
-        SDF.reset();
+                std::shared_ptr<Matrix> SDF(FDSmSDF->transpose());
+                FDSmSDF->subtract(SDF);
 
-        std::shared_ptr<Matrix> ShalfGrad(new Matrix("ST^{-1/2}(FDS - SDF)",Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
-        ShalfGrad->gemm(true,false,1.0,Shalf,FDSmSDF,0.0);
-        FDSmSDF.reset();
+                SDF.reset();
 
-        std::shared_ptr<Matrix> ShalfGradShalf(new Matrix("ST^{-1/2}(FDS - SDF)S^{-1/2}", Jell->nirrep_,Jell->nsopi_, Jell->nsopi_));
-        ShalfGradShalf->gemm(false,false,1.0,ShalfGrad,Shalf,0.0);
+                std::shared_ptr<Matrix> ShalfGrad(new Matrix("ST^{-1/2}(FDS - SDF)",Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+                ShalfGrad->gemm(true,false,1.0,Shalf,FDSmSDF,0.0);
+                FDSmSDF.reset();
 
-        ShalfGrad.reset();
-        std::shared_ptr<Vector> tmp_vec(new Vector(nso*nso));
-        tmp_vec_offset = 0;
-        for(int h = 0; h < Jell->nirrep_; h++){
-            for(int i = 0; i < Jell->nsopi_[h]; i++){
-                for(int j = 0; j < Jell->nsopi_[h]; j++){
-                    tmp_vec->pointer()[tmp_vec_offset+j] = ShalfGradShalf->pointer(h)[i][j];
-                    tmp_F->pointer()[tmp_vec_offset+j] = Fprime->pointer(h)[i][j];
+                std::shared_ptr<Matrix> ShalfGradShalf(new Matrix("ST^{-1/2}(FDS - SDF)S^{-1/2}", Jell->nirrep_,Jell->nsopi_, Jell->nsopi_));
+                ShalfGradShalf->gemm(false,false,1.0,ShalfGrad,Shalf,0.0);
+
+                ShalfGrad.reset();
+                std::shared_ptr<Vector> tmp_vec(new Vector(nso*nso));
+                tmp_vec_offset = 0;
+                for(int h = 0; h < Jell->nirrep_; h++){
+                        for(int i = 0; i < Jell->nsopi_[h]; i++){
+                                for(int j = 0; j < Jell->nsopi_[h]; j++){
+                                        tmp_vec->pointer()[tmp_vec_offset+j] = ShalfGradShalf->pointer(h)[i][j];
+                                        tmp_F->pointer()[tmp_vec_offset+j] = Fprime->pointer(h)[i][j];
+                                }
+                                tmp_vec_offset += nso;
+                        }
+                        tmp_vec_offset += Jell->nsopi_[h];
                 }
-                tmp_vec_offset += nso;
-            }
-            tmp_vec_offset += Jell->nsopi_[h];
-        }
-        diis->WriteErrorVector(&(tmp_vec->pointer()[0]));
-        diis->Extrapolate(&(tmp_F->pointer()[0]));
+                diis->WriteErrorVector(&(tmp_vec->pointer()[0]));
+                diis->Extrapolate(&(tmp_F->pointer()[0]));
+        } 
         tmp_vec_offset = 0;
         for(int h = 0; h < Jell->nirrep_; h++){
             for(int i = 0; i < Jell->nsopi_[h]; i++){
@@ -371,6 +385,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             tmp_vec_offset += Jell->nsopi_[h];
         }
 
+        //change in density
         deld = 0.0;
         #pragma omp parallel for shared(deld)
         for(int h = 0; h < Jell->nirrep_; h++){
@@ -389,6 +404,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
         outfile->Printf("    %6i%20.12lf%20.12lf%20.12lf\n", iter, new_energy, dele, deld);
         energy = new_energy;
+
+        //calculating new density
         Fprime->diagonalize(Ca,Feval);
         #pragma omp parallel for
         for(int h = 0; h < Jell->nirrep_; h++){
@@ -412,7 +429,6 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
             F_re = (std::shared_ptr<Matrix>)(new Matrix(Fprime));
             density_re = (std::shared_ptr<Matrix>)(new Matrix(D)); 
         }
-
         iter++;
         if( iter > maxiter ) break;
         //printf("gnorm: %f\n",gnorm);
@@ -421,7 +437,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     if ( iter > maxiter ) {
         throw PsiException("jellium scf did not converge.",__FILE__,__LINE__);
     }
-
+    if(options.get_bool("DIIS")){
+       diis = std::shared_ptr<DIIS> (new DIIS(0,0));
+    }
     outfile->Printf("\n");
     outfile->Printf("      SCF iterations converged!\n");
     outfile->Printf("\n");
@@ -430,6 +448,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
     outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
 
+    //D->print();
     if(options.get_bool("print_density")){
         outfile->Printf("Ground state density\n");
         int points = options.get_int("N_GRID_POINTS");
@@ -496,9 +515,161 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
     iter = 0;	
     boxlength = options.get_double("LENGTH");
+
+    //counting occupied and unoccupied orbicals
+    int ** cis_nsopi = (int**)malloc(Jell->nirrep_*sizeof(double*));
+    int * new_nsopi = (int*)malloc(Jell->nirrep_*sizeof(double));
+    for(int i = 0; i < Jell->nirrep_; i++){
+        cis_nsopi[i] = (int*)malloc(2*sizeof(double*));
+    }
+    for(int i = 0; i < Jell->nirrep_; i++){
+        double ** D_ptr = D->pointer(i);
+        cis_nsopi[i][0] = 0;
+        cis_nsopi[i][1] = 0;
+        for(int j = 0; j < Jell->nsopi_[i]; j++){
+            if(D_ptr[j][j]>0.01){
+                cis_nsopi[i][0] = Jell->Eirrep_[i];
+            }
+            else{
+                cis_nsopi[i][1] = Jell->nsopi_[i]-Jell->Eirrep_[i];
+            }
+        }
+                cis_nsopi[i][0] = Jell->Eirrep_[i];
+                cis_nsopi[i][1] = Jell->nsopi_[i]-Jell->Eirrep_[i];
+        printf("occupied: %d unoccupied %d\n",cis_nsopi[i][0],cis_nsopi[i][1]);
+        new_nsopi[i] = (((Jell->nsopi_[i]-Jell->Eirrep_[i])*Jell->Eirrep_[i]));
+    }
+    std::shared_ptr<Matrix> cis_matrix = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,new_nsopi,new_nsopi));
+    //Ca->print();
+      
+    //TODO pretty sure fock is already in mo but verify this
+    //putting the fock matrix into an MO basis
+    std::shared_ptr<Matrix> MO_fock = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
+    for(int h = 0; h < Jell->nirrep_; h++){
+       double ** F_ptr = F_re->pointer(h);
+       double ** MOF_ptr = MO_fock->pointer(h);
+       double ** Ca_ptr = Ca->pointer(h);
+       for(int i = 0; i < Jell->nsopi_[h]; i++){
+          for(int j = 0; j < Jell->nsopi_[h]; j++){
+             for(int mu = 0; mu < Jell->nsopi_[h]; mu++){
+                for(int nu = 0; nu < Jell->nsopi_[h]; nu++){            
+                   MOF_ptr[i][j] += Ca_ptr[i][mu]*Ca_ptr[j][nu]*F_ptr[mu][nu];
+                }
+             }
+          }
+       }
+    }
+
+    //MO_fock->print();
+    //TODO need to convert the ERI integrals to MO basis
+    //TODO add an option to remove symmetry and then use that for the first test of this stuff and also test
+    //that removing symmetry gives the same results for time propagation and then CIS when done
+    //For the time being we are storing everything...
+
+    //Creating MO_eri structure
+    double **** MO_eri = (double****)malloc(nso*sizeof(double***));
+    for(int i = 0; i < nso; i++){
+        MO_eri[i] = (double***)malloc(nso*sizeof(double***));
+        for(int j = 0; j < nso; j++){
+            MO_eri[i][j] = (double**)malloc(nso*sizeof(double**));
+            for(int k = 0; k < nso; k++){
+                MO_eri[i][j][k] = (double*)malloc(nso*sizeof(double*));
+                for(int l = 0; l < nso; l++){
+                    MO_eri[i][j][k][l] = 0;
+                }
+            }
+        }
+    }
+
+    //Calculating MO_eri's
+    //Under the assumption of no symmetry for now
+    //double ** c_p = Ca->pointer(0);
+    //for(int p = 0; p < nso; p++){
+    //   for(int q = 0; q < nso; q++){
+    //      for(int r = 0; r < nso; r++){
+    //         for(int s = 0; s < nso; s++){
+    //            for(int theta = 0; theta < nso; theta++){
+    //               MO_eri[p][q][r][s] += c_p[s][theta]*Jell->ERI_int(p,q,r,theta); 
+    //            }
+    //            for(int lamba = 0; lamba < nso; lamba++){
+    //               MO_eri[p][q][r][s] += c_p[r][lamba]*Jell->ERI_int(p,q,lamba,s);
+    //            }
+    //            for(int nu = 0; nu < nso; nu++){
+    //               MO_eri[p][q][r][s] += c_p[q][nu]*Jell->ERI_int(p,nu,r,s); 
+    //            }
+    //            for(int mu = 0; mu < nso; mu++){
+    //               MO_eri[p][q][r][s] += c_p[p][mu]*Jell->ERI_int(mu,q,r,s); 
+    //            }
+    //         }
+    //      }
+    //   }
+    //} 
+    
+    //Doing CIS
+    for(int h = 0; h < Jell->nirrep_; h++){
+       double ** cis_ptr = cis_matrix->pointer(h);
+       double ** F_ptr = F_re->pointer(h);
+       double ** MOF_ptr = MO_fock->pointer(h);
+       for(int i = 0; i < cis_nsopi[h][0]; i++){
+          for(int a = 0; a < cis_nsopi[h][1]; a++){
+             int offset = 0;
+             for(int k = 0; k < h; k++){
+                 offset += Jell->nsopi_[k];
+             }
+             int ai = a + cis_nsopi[h][0];
+             int Hai = i*cis_nsopi[h][1]+a;
+             for(int j = 0; j < cis_nsopi[h][0]; j++){
+                for(int b = 0; b < cis_nsopi[h][1]; b++){
+                   int bj = b + cis_nsopi[h][0];
+                   int Hbj = j*cis_nsopi[h][1]+b;
+                   //printf("Hai: %d Hbj: %d h: %d\n",Hai,Hbj,h);
+                   if(i == j){
+                      //printf("Hai: %d Hbj %d\n",Hai,Hbj);
+                      cis_ptr[Hai][Hbj] += F_ptr[ai][bj];
+                   }
+                   if(a == b){
+                      //printf(" a==b Hai: %d Hbj %d\n",Hai,Hbj);
+                      cis_ptr[Hai][Hbj] -= F_ptr[i][j];
+                   }
+                   //AO ERI's
+                   //printf("i: %d a: %d j: %d b: %d\n",i+offseti,ai+offseti,j+offsetj,bj+offsetj);
+                   //cis_ptr[Hai][Hbj] += (2*Jell->ERI_int(i+offset,ai+offset,j+offset,bj+offset))/Lfac;
+                   //cis_ptr[Hai][Hbj] -= Jell->ERI_int(i+offset,j+offset,ai+offset,bj+offset)/Lfac;
+                   
+                   //MO ERI's
+                   cis_ptr[Hai][Hbj] += (2*MO_eri[i+offset][ai+offset][j+offset][bj+offset])/Lfac;
+                   cis_ptr[Hai][Hbj] -= MO_eri[i+offset][j+offset][ai+offset][bj+offset]/Lfac;
+                }
+             }    
+          }
+       }
+    }
+    std::shared_ptr<Vector> cis_eval = (std::shared_ptr<Vector>)(new Vector(Jell->nirrep_,new_nsopi));
+    std::shared_ptr<Matrix> cis_trans = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,new_nsopi,new_nsopi));
+    cis_matrix->diagonalize(cis_trans,cis_eval);
+    //cis_eval->print();
+    //F_re->diagonalize(Ca,Feval);
+    //Feval->print();
+
+    //multiplying CIS results by dipole moment
+    for(int h = 0; h < Jell->nirrep_; h++){
+       double * cis_ptr = cis_eval->pointer(h);
+       for(int i = 0; i < cis_nsopi[h][0]*cis_nsopi[h][1]; i++){
+             int offset = 0;
+             for(int k = 0; k < h; k++){
+                 offset += Jell->nsopi_[k];
+             }
+             printf("%d %f %f %f\n",i+offset,0.1000,cis_ptr[i],dipole(Jell->MO[offset+i/(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],Jell->MO[offset+Jell->Eirrep_[h]+i%(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],boxlength));
+             cis_ptr[i] *= dipole(Jell->MO[offset+i/(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],Jell->MO[offset+Jell->Eirrep_[h]+i%(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],boxlength);
+       }
+    }
+    //TODO make this an input option
+    //cis_eval->print();
+
+    //Start of RTTDHF
     double * Vre = (double*)malloc((int)time_length/time_step*sizeof(double));
-    double * Vim = (double*)malloc((int)time_length/time_step*sizeof(double));
-    while(iter<(time_length/time_step)){	
+    double * Vfield = (double*)malloc((int)time_length/time_step*sizeof(double));
+    while(iter<(time_length/time_step) && options.get_bool("FOURIER")){	
 
         //start of RT-TDHF
         rk_step(density_re, density_im, iter*time_step);
@@ -517,36 +688,32 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         outfile->Printf("%20.12lf %20.12lf %20.12lf %20.12lf %20.12lf\n",iter * time_step,dip,density_re->rms(),density_im->rms(),ext_field_);
 
         Vre[iter] = dip;
-        Vim[iter] = 0;
+        Vfield[iter] = ext_field_;
         //since only propagating in the x direction psi(i) psi(j) is integrated over x
         iter++;
 
     }
-    fourier(Vre, Vim);
+
+    //Prints frequency data
+    if(options.get_bool("FOURIER")){
+       printf("fourier\n");
+       fourier(Vre, Vfield);
+    }
     //printf("%d\n",iter);
     // Typically you would build a new wavefunction and populate it with data
     return ref_wfn;
 }
 
 
-//extern "C" PSI_API
 double dipole(int n, int m, double L){
-
-        if(m==n){
-            //return (-2/L)*(-L*L*(-2*M_PI*M_PI*n*n+2*M_PI*n*sin(2*M_PI*n)+cos(2*M_PI*n)-1)/(8*M_PI*M_PI*n*n));
-            //just testing the results of this
-            return 0;
+         
+        if((m+n)%2!=1){
+           return 0;
+        } else {
+           return (8*L/(M_PI*M_PI))*((n*m)/pow((n*n-m*m),2));
         }
-        //L is total length
-        //m is second sin term n is first term
-        //indenfinite integral
-        //return -(2/L)*L*((M_PI*x*(m-n)*sin(pixm_nL)+L*cos(pixm_nL))/((m-n)*(m-n))-M_PI*x*(m+n)*sin(pixmnL)+L*cos(pixmnL))/(2*M_PI*M_PI);
-        //printf("L %f\n",L);
-        //return 0.5; 
-        //definite integral
-        return (-2/L)*(1/(M_PI*M_PI*(m-n)*(m-n)*(m+n)*(m+n)))*L*L*(-M_PI*n*(n*n-m*m)*sin(M_PI*m)*cos(M_PI*n)+cos(M_PI*m)*((M_PI*m*(n*n-m*m))*sin(M_PI*n)+2*m*n*cos(M_PI*n))+m*m*sin(M_PI*m)*sin(M_PI*n)+n*n*sin(M_PI*m)*sin(M_PI*n)-2*m*n);
 }
-//extern "C" PSI_API
+
 double pulse(double time){
     // Gaussian pulse
     ext_field_ = laser_amp * exp(-((time-1.5*laser_time)*(time-1.5*laser_time)) / (0.3606738*laser_time*laser_time)) * sin(laser_freq*time);
@@ -686,42 +853,41 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
   
 } 
 
-
 void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, double time){
     std::shared_ptr<Matrix> J (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
     std::shared_ptr<Matrix> K (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
     std::shared_ptr<Matrix> K_im (new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
           #pragma omp parallel for
-          for (short hp = 0; hp < Jell->nirrep_; hp++) {
-              short offp = 0;
+          for (int hp = 0; hp < Jell->nirrep_; hp++) {
+              int offp = 0;
               double ** k_p = K->pointer(hp);
               double ** j_p = J->pointer(hp);
               double ** kim_p = K_im->pointer(hp);
               for (int myh = 0; myh < hp; myh++) {
                   offp += Jell->nsopi_[myh];
               }
-              for (short p = 0; p < Jell->nsopi_[hp]; p++) {
-                  short pp = p + offp;
+              for (int p = 0; p < Jell->nsopi_[hp]; p++) {
+                  int pp = p + offp;
 
-                  for (short q = p; q < Jell->nsopi_[hp]; q++) {
-                      short qq = q + offp;
+                  for (int q = p; q < Jell->nsopi_[hp]; q++) {
+                      int qq = q + offp;
 
                       double myJ = 0.0;
                       double myK = 0.0;
                       double myKim = 0.0;
-                      for (short hr = 0; hr < Jell->nirrep_; hr++) {
+                      for (int hr = 0; hr < Jell->nirrep_; hr++) {
                           double ** d_p = d_re->pointer(hr);
                           double ** dim_p = d_im->pointer(hr);
 
-                          short offr = 0;
-                          for (short myh = 0; myh < hr; myh++) {
+                          int offr = 0;
+                          for (int myh = 0; myh < hr; myh++) {
                               offr += Jell->nsopi_[myh];
                           }
 
-                          for (short r = 0; r < Jell->nsopi_[hr]; r++) {
-                              short rr = r + offr;
-                              for (short s = 0; s < Jell->nsopi_[hr]; s++) {
-                                  short ss = s + offr;
+                          for (int r = 0; r < Jell->nsopi_[hr]; r++) {
+                              int rr = r + offr;
+                              for (int s = 0; s < Jell->nsopi_[hr]; s++) {
+                                  int ss = s + offr;
                                   myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
                                   double eri = Jell->ERI_int(pp,ss,rr,qq);
                                   myK += d_p[r][s] * eri;
@@ -758,37 +924,43 @@ void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, doubl
         }
 
 }
-//inspired from daniels rtcc2 code
-void fourier(double* Vre, double* Vim){
-     //dampening rate from daniels code
+
+void fourier(double* Vre, double* Vfield){
      double dampening = 5/time_length;
-     double min_freq = 400.0;
-     double max_freq = 700.0;
+     //double min_freq = 400.0;
+     //double max_freq = 700.0;
      double delta_freq = 0.05;
      int N = (int)time_length/time_step;
      for(int i = 0; i < (int)time_length/time_step; i++){
          double t = i*time_step;
-         Vre[i] *= exp(-dampening*t);
-         Vim[i] *= exp(-dampening*t);
+         Vre[i] *= exp(-t/500);
+         Vfield[i] *= exp(-t/500);
      }
      outfile->Printf("\t Starting Fourier transform...\n\n");
-     for (double k = min_freq/27.21138; k < max_freq/27.21138; k += delta_freq/27.21138) {
-         double valrr = 0.0;
-         double valri = 0.0;
-         // e^-iwt
-         for (int j = 0; j < N; j++) {
-             valrr += (Vre[j]*cos(k*j*time_step) + Vim[j]*sin(k*j*time_step));
-             valri += (Vim[j]*cos(k*j*time_step) - Vre[j]*sin(k*j*time_step));
-             if (j != 0){
-                 valrr += (Vre[j]*cos(k*j*time_step) - Vim[j]*sin(k*j*time_step));
-                 valri += (Vim[j]*cos(k*j*time_step) + Vre[j]*sin(k*j*time_step));
-             }
-         }
-         valrr /= (N-1);
-         valri /= (N-1);
-         outfile->Printf("\t@Frequency %20.6lf %20.6lf %20.6lf \n",k*27.21138,valrr,valri);
+    
+    double max_freq = 5.0;
+    double dw = 0.000001;
+    double w = 0.0;
+
+    while ( w * 27.21138 < max_freq ) {
+
+        w  += 2.0 * M_PI * dw;
+
+        double dip_r = 0.0;
+        double dip_i = 0.0;
+        double ext_r = 0.0;
+        double ext_i = 0.0;
+        for (int i = 0; i < N; i++) {
+            double t = i * time_step;
+            dip_r += cos(w * t) * Vre[i];
+            dip_i += sin(w * t) * Vre[i];
+            ext_r += cos(w * t) * Vfield[i];
+            ext_i += sin(w * t) * Vfield[i];
         }
-        outfile->Printf("\t Ending Fourier transform...\n\n");
+
+        if (w*27.21138>max_freq) break;
+        printf("%20.12f %20.12f\n",1240.0/(w*27.21138),(dip_r*dip_r + dip_i*dip_i)/(ext_r*ext_r+ext_i*ext_i));
+    }
 }
 }} // End namespaces
 
