@@ -144,12 +144,12 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     }
 
     // factor for box size ... coded to give <rho> = 1
-    //Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
-    //boxlength = Lfac * M_PI;
+    Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
+    boxlength = Lfac * M_PI;
     
     //since box is already pi a.u. long
-    double length_nm = options.get_double("length");
-    Lfac = length_nm * 18.89725988 / M_PI;
+    //double length_nm = options.get_double("length");
+    //Lfac = length_nm * 18.89725988 / M_PI;
     
     //grabbing one-electon integrals from mintshelper
     Jell = (std::shared_ptr<JelliumIntegrals>)(new JelliumIntegrals(options));
@@ -246,6 +246,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
   
     do {
         K->zero();
+        J->zero();
         #pragma omp parallel for
         for (short hp = 0; hp < Jell->nirrep_; hp++) {
             short offp = 0;
@@ -279,11 +280,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                                 myK += d_p[r][s] * Jell->ERI_int(pp,ss,rr,qq);
                             }
                         }
-                        j_p[p][q] = myJ;
-                        j_p[q][p] = myJ;
-                        k_p[p][q] = myK;
-                        k_p[q][p] = myK;
                     }
+                    j_p[p][q] = myJ;
+                    j_p[q][p] = myJ;
+                    k_p[p][q] = myK;
+                    k_p[q][p] = myK;
                 }
             }
         }
@@ -448,6 +449,21 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     outfile->Printf("    * Jellium HF total energy: %20.12lf\n",energy);
     outfile->Printf("      Fock energy:             %20.12lf\n",fock_energy);
 
+    //for(int h = 0; h < Jell->nirrep_; h++){
+    //    double ** F_pt = F_re->pointer(h);
+    //    double ** D_pt = density_re->pointer(h);
+    //    for(int i = 0; i < Jell->nsopi_[h]; i++){
+    //        for(int j = 0; j < Jell->nsopi_[h]; j++){
+    //            if(i!=j){
+    //               F_pt[i][j] = 0;
+    //               D_pt[i][j] = 0;
+    //            }
+    //        }
+    //    }
+    //}
+    //F_re->print();
+
+
     //D->print();
     if(options.get_bool("print_density")){
         outfile->Printf("Ground state density\n");
@@ -541,7 +557,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     }
     std::shared_ptr<Matrix> cis_matrix = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,new_nsopi,new_nsopi));
     //Ca->print();
-      
+
     //TODO pretty sure fock is already in mo but verify this
     //putting the fock matrix into an MO basis
     std::shared_ptr<Matrix> MO_fock = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,Jell->nsopi_,Jell->nsopi_));
@@ -559,7 +575,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
           }
        }
     }
-
+   outfile->Printf("whatttttt\n");
+   F_re->diagonalize(Ca,Feval);
+   Feval->print();
     //MO_fock->print();
     //TODO need to convert the ERI integrals to MO basis
     //TODO add an option to remove symmetry and then use that for the first test of this stuff and also test
@@ -568,43 +586,82 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
     //Creating MO_eri structure
     double **** MO_eri = (double****)malloc(nso*sizeof(double***));
+    double **** MO_eri_test = (double****)malloc(nso*sizeof(double***));
     for(int i = 0; i < nso; i++){
         MO_eri[i] = (double***)malloc(nso*sizeof(double***));
+        MO_eri_test[i] = (double***)malloc(nso*sizeof(double***));
         for(int j = 0; j < nso; j++){
             MO_eri[i][j] = (double**)malloc(nso*sizeof(double**));
+            MO_eri_test[i][j] = (double**)malloc(nso*sizeof(double**));
             for(int k = 0; k < nso; k++){
                 MO_eri[i][j][k] = (double*)malloc(nso*sizeof(double*));
+                MO_eri_test[i][j][k] = (double*)malloc(nso*sizeof(double*));
                 for(int l = 0; l < nso; l++){
                     MO_eri[i][j][k][l] = 0;
+                    MO_eri_test[i][j][k][l] = 0;
                 }
             }
         }
     }
 
     //Calculating MO_eri's
+    //using n^8th scaling as reference implementation
     //Under the assumption of no symmetry for now
-    //double ** c_p = Ca->pointer(0);
-    //for(int p = 0; p < nso; p++){
-    //   for(int q = 0; q < nso; q++){
-    //      for(int r = 0; r < nso; r++){
-    //         for(int s = 0; s < nso; s++){
-    //            for(int theta = 0; theta < nso; theta++){
-    //               MO_eri[p][q][r][s] += c_p[s][theta]*Jell->ERI_int(p,q,r,theta); 
-    //            }
-    //            for(int lamba = 0; lamba < nso; lamba++){
-    //               MO_eri[p][q][r][s] += c_p[r][lamba]*Jell->ERI_int(p,q,lamba,s);
-    //            }
-    //            for(int nu = 0; nu < nso; nu++){
-    //               MO_eri[p][q][r][s] += c_p[q][nu]*Jell->ERI_int(p,nu,r,s); 
-    //            }
-    //            for(int mu = 0; mu < nso; mu++){
-    //               MO_eri[p][q][r][s] += c_p[p][mu]*Jell->ERI_int(mu,q,r,s); 
-    //            }
-    //         }
-    //      }
-    //   }
-    //} 
+    double ** c_p = Ca->pointer(0);
+    for(int p = 0; p < nso; p++){
+       for(int q = 0; q < nso; q++){
+          for(int r = 0; r < nso; r++){
+             for(int s = 0; s < nso; s++){
+                for(int theta = 0; theta < nso; theta++){
+                   for(int lamba = 0; lamba < nso; lamba++){
+                      for(int nu = 0; nu < nso; nu++){
+                         for(int mu = 0; mu < nso; mu++){
+                            MO_eri[p][q][r][s] += c_p[theta][p]*c_p[lamba][q]*c_p[nu][r]*c_p[mu][s]*Jell->ERI_int(mu,q,r,s); 
+                         }
+                      }
+                   }
+                }
+                //printf("%f\n",MO_eri[p][q][r][s]);
+             }
+          }
+       }
+    } 
+
+    for(int p = 0; p < nso; p++){
+       for(int q = 0; q < nso; q++){
+          for(int r = 0; r < nso; r++){
+             for(int s = 0; s < nso; s++){
+                for(int theta = 0; theta < nso; theta++){
+                   MO_eri_test[p][q][r][s] += c_p[s][theta]*Jell->ERI_int(p,q,r,theta); 
+                }
+                for(int lamba = 0; lamba < nso; lamba++){
+                   MO_eri_test[p][q][r][s] += c_p[r][lamba]*Jell->ERI_int(p,q,lamba,s);
+                }
+                for(int nu = 0; nu < nso; nu++){
+                   MO_eri_test[p][q][r][s] += c_p[q][nu]*Jell->ERI_int(p,nu,r,s); 
+                }
+                for(int mu = 0; mu < nso; mu++){
+                   MO_eri_test[p][q][r][s] += c_p[p][mu]*Jell->ERI_int(mu,q,r,s); 
+                }
+                //printf("%f\n",MO_eri[p][q][r][s]);
+             }
+          }
+       }
+    } 
     
+     for(int p = 0; p < nso; p++){
+       for(int q = 0; q < nso; q++){
+          for(int r = 0; r < nso; r++){
+             for(int s = 0; s < nso; s++){
+                if(MO_eri_test[p][q][r][s] != MO_eri[p][q][r][s]){
+                printf("%f ",MO_eri[p][q][r][s]);
+                printf("%f\n",MO_eri_test[p][q][r][s]);
+                }
+             }
+          }
+       }
+    }
+                printf(";lkjdfsa;lkjdfs%f\n",0.0);
     //Doing CIS
     for(int h = 0; h < Jell->nirrep_; h++){
        double ** cis_ptr = cis_matrix->pointer(h);
@@ -625,11 +682,13 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    //printf("Hai: %d Hbj: %d h: %d\n",Hai,Hbj,h);
                    if(i == j){
                       //printf("Hai: %d Hbj %d\n",Hai,Hbj);
-                      cis_ptr[Hai][Hbj] += F_ptr[ai][bj];
+                      cis_ptr[Hai][Hbj] += Feval->pointer()[ai];
+                      //cis_ptr[Hai][Hbj] += F_ptr[ai][bj];
                    }
                    if(a == b){
                       //printf(" a==b Hai: %d Hbj %d\n",Hai,Hbj);
-                      cis_ptr[Hai][Hbj] -= F_ptr[i][j];
+                      cis_ptr[Hai][Hbj] -= Feval->pointer()[i];
+                      //cis_ptr[Hai][Hbj] -= F_ptr[i][j];
                    }
                    //AO ERI's
                    //printf("i: %d a: %d j: %d b: %d\n",i+offseti,ai+offseti,j+offsetj,bj+offsetj);
@@ -637,6 +696,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    //cis_ptr[Hai][Hbj] -= Jell->ERI_int(i+offset,j+offset,ai+offset,bj+offset)/Lfac;
                    
                    //MO ERI's
+                   //cis_ptr[Hai][Hbj] += (2*MO_eri[i+offset][ai+offset][j+offset][bj+offset])/Lfac;
+                   //cis_ptr[Hai][Hbj] -= MO_eri[i+offset][j+offset][ai+offset][bj+offset]/Lfac;
                    cis_ptr[Hai][Hbj] += (2*MO_eri[i+offset][ai+offset][j+offset][bj+offset])/Lfac;
                    cis_ptr[Hai][Hbj] -= MO_eri[i+offset][j+offset][ai+offset][bj+offset]/Lfac;
                 }
@@ -647,7 +708,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     std::shared_ptr<Vector> cis_eval = (std::shared_ptr<Vector>)(new Vector(Jell->nirrep_,new_nsopi));
     std::shared_ptr<Matrix> cis_trans = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,new_nsopi,new_nsopi));
     cis_matrix->diagonalize(cis_trans,cis_eval);
-    //cis_eval->print();
+    cis_matrix->print();
+    outfile->Printf("first one\n");
+    cis_eval->print();
     //F_re->diagonalize(Ca,Feval);
     //Feval->print();
 
@@ -664,7 +727,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
        }
     }
     //TODO make this an input option
-    //cis_eval->print();
+    cis_eval->print();
+   
+    exit(1);
 
     //Start of RTTDHF
     double * Vre = (double*)malloc((int)time_length/time_step*sizeof(double));
@@ -691,9 +756,9 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         Vfield[iter] = ext_field_;
         //since only propagating in the x direction psi(i) psi(j) is integrated over x
         iter++;
+        //printf("%f %f\n",density_re->trace(),density_im->trace());
 
     }
-
     //Prints frequency data
     if(options.get_bool("FOURIER")){
        printf("fourier\n");
@@ -701,6 +766,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     }
     //printf("%d\n",iter);
     // Typically you would build a new wavefunction and populate it with data
+
+    density_re->print();
     return ref_wfn;
 }
 
@@ -760,7 +827,7 @@ void rk_step(std::shared_ptr<Matrix> density_re, std::shared_ptr<Matrix> density
         d_re_tmp->add(k1_re);
         d_im_tmp->add(k1_im);
 
-        buildfock(d_re_tmp,d_im_tmp, time + 0.5 * time_step);
+        //buildfock(d_re_tmp,d_im_tmp, time + 0.5 * time_step);
 
         k2_re->gemm(false,false,1.0,d_im_tmp,F_re,0.0);
         k2_re->gemm(false,false,1.0,d_re_tmp,F_im,1.0);
@@ -891,34 +958,34 @@ void buildfock(std::shared_ptr<Matrix> d_re, std::shared_ptr<Matrix> d_im, doubl
                                   myJ += d_p[r][s] * Jell->ERI_int(pp,qq,rr,ss);
                                   double eri = Jell->ERI_int(pp,ss,rr,qq);
                                   myK += d_p[r][s] * eri;
-                                  myKim -= dim_p[r][s] * eri;
+                                  myKim += dim_p[r][s] * eri;
                               }
                           }
-                          j_p[p][q] = myJ;
-                          j_p[q][p] = myJ;
-                          k_p[p][q] = myK;
-                          k_p[q][p] = myK;
-                          kim_p[p][q] =  myKim;
-                          kim_p[q][p] = -myKim;
                       }
+                      j_p[p][q] = myJ;
+                      j_p[q][p] = myJ;
+                      k_p[p][q] = myK;
+                      k_p[q][p] = myK;
+                      kim_p[p][q] =  myKim;
+                      kim_p[q][p] = -myKim;
                   }
               }
           }
         F_re->copy(J);
         F_re->scale(2.0);
         F_re->subtract(K);
-        F_re->add(h);
         F_im->copy(K_im);
         F_im->scale(1.0/Lfac);
         F_re->scale(1.0/Lfac);
+        F_re->add(h);
 
         int offset = 0;
         for(int h = 0; h < Jell->nirrep_; h++){
             double ** F_re_p = F_re->pointer(h);
             for(int i = 0; i < Jell->nsopi_[h]; i++){
-                for(int j = 0; j < Jell->nsopi_[h]; j++){
-                    F_re_p[i][j] -= dipole(Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength)*pulse(time);
-                }
+               for(int j = 0; j < Jell->nsopi_[h]; j++){
+                   F_re_p[i][j] += dipole(Jell->MO[offset+i][0],Jell->MO[offset+j][0],boxlength)*pulse(time);
+               }
             }
             offset += Jell->nsopi_[h];
         }
