@@ -552,7 +552,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
         }
                 cis_nsopi[i][0] = Jell->Eirrep_[i];
                 cis_nsopi[i][1] = Jell->nsopi_[i]-Jell->Eirrep_[i];
-        printf("occupied: %d unoccupied %d\n",cis_nsopi[i][0],cis_nsopi[i][1]);
+        //printf("occupied: %d unoccupied %d\n",cis_nsopi[i][0],cis_nsopi[i][1]);
         new_nsopi[i] = (((Jell->nsopi_[i]-Jell->Eirrep_[i])*Jell->Eirrep_[i]));
     }
     std::shared_ptr<Matrix> cis_matrix = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,new_nsopi,new_nsopi));
@@ -575,7 +575,6 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
           }
        }
     }
-   outfile->Printf("whatttttt\n");
    F_re->diagonalize(Ca,Feval);
    Feval->print();
     //MO_fock->print();
@@ -654,14 +653,13 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
           for(int r = 0; r < nso; r++){
              for(int s = 0; s < nso; s++){
                 if(MO_eri_test[p][q][r][s] != MO_eri[p][q][r][s]){
-                printf("%f ",MO_eri[p][q][r][s]);
-                printf("%f\n",MO_eri_test[p][q][r][s]);
+                //printf("%f ",MO_eri[p][q][r][s]);
+                //printf("%f\n",MO_eri_test[p][q][r][s]);
                 }
              }
           }
        }
     }
-                printf(";lkjdfsa;lkjdfs%f\n",0.0);
     //Doing CIS
     for(int h = 0; h < Jell->nirrep_; h++){
        double ** cis_ptr = cis_matrix->pointer(h);
@@ -708,8 +706,8 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     std::shared_ptr<Vector> cis_eval = (std::shared_ptr<Vector>)(new Vector(Jell->nirrep_,new_nsopi));
     std::shared_ptr<Matrix> cis_trans = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,new_nsopi,new_nsopi));
     cis_matrix->diagonalize(cis_trans,cis_eval);
-    cis_matrix->print();
-    outfile->Printf("first one\n");
+    //cis_matrix->print();
+    outfile->Printf("cis eval before dipole\n");
     cis_eval->print();
     //F_re->diagonalize(Ca,Feval);
     //Feval->print();
@@ -722,7 +720,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
              for(int k = 0; k < h; k++){
                  offset += Jell->nsopi_[k];
              }
-             printf("%d %f %f %f\n",i+offset,0.1000,cis_ptr[i],dipole(Jell->MO[offset+i/(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],Jell->MO[offset+Jell->Eirrep_[h]+i%(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],boxlength));
+             printf("%d %f %f %f\n",i+offset,0.1000,cis_eval->pointer()[i],dipole(Jell->MO[offset+i/(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],Jell->MO[offset+Jell->Eirrep_[h]+i%(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],boxlength));
              cis_ptr[i] *= dipole(Jell->MO[offset+i/(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],Jell->MO[offset+Jell->Eirrep_[h]+i%(Jell->nsopi_[h]-Jell->Eirrep_[h])][0],boxlength);
        }
     }
