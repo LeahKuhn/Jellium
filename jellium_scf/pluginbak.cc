@@ -144,12 +144,12 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     }
 
     // factor for box size ... coded to give <rho> = 1
-    Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
-    boxlength = Lfac * M_PI;
+    //Lfac = pow((double)nelectron,1.0/3.0)/M_PI;
+    //boxlength = Lfac * M_PI;
     
     //since box is already pi a.u. long
-    //double length_nm = options.get_double("length");
-    //Lfac = length_nm * 18.89725988 / M_PI;
+    double length_nm = options.get_double("length");
+    Lfac = length_nm * 18.89725988 / M_PI;
     
     //grabbing one-electon integrals from mintshelper
     Jell = (std::shared_ptr<JelliumIntegrals>)(new JelliumIntegrals(options));
@@ -607,6 +607,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     //using n^8th scaling as reference implementation
     //Under the assumption of no symmetry for now
     double ** c_p = Ca->pointer(0);
+        #pragma omp parallel for
     for(int p = 0; p < nso; p++){
        for(int q = 0; q < nso; q++){
           for(int r = 0; r < nso; r++){
@@ -678,12 +679,12 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    int bj = b + cis_nsopi[h][0];
                    int Hbj = j*cis_nsopi[h][1]+b;
                    //printf("Hai: %d Hbj: %d h: %d\n",Hai,Hbj,h);
-                   if(i == j){
+                   if(i == j && a == b){
                       //printf("Hai: %d Hbj %d\n",Hai,Hbj);
                       cis_ptr[Hai][Hbj] += Feval->pointer()[ai];
                       //cis_ptr[Hai][Hbj] += F_ptr[ai][bj];
                    }
-                   if(a == b){
+                   if(a == b && i == j){
                       //printf(" a==b Hai: %d Hbj %d\n",Hai,Hbj);
                       cis_ptr[Hai][Hbj] -= Feval->pointer()[i];
                       //cis_ptr[Hai][Hbj] -= F_ptr[i][j];
@@ -705,6 +706,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     }
     std::shared_ptr<Vector> cis_eval = (std::shared_ptr<Vector>)(new Vector(Jell->nirrep_,new_nsopi));
     std::shared_ptr<Matrix> cis_trans = (std::shared_ptr<Matrix>)(new Matrix(Jell->nirrep_,new_nsopi,new_nsopi));
+    cis_matrix->print();
     cis_matrix->diagonalize(cis_trans,cis_eval);
     //cis_matrix->print();
     outfile->Printf("cis eval before dipole\n");
