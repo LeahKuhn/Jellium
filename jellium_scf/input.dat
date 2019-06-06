@@ -1,4 +1,3 @@
-
 # PYTHONPATH must include directory above plugin directory.
 #     Define either externally or here, then import plugin.
 sys.path.insert(0, './..')
@@ -16,17 +15,19 @@ A = 104.5
 set {
   basis sto-3g
   n_grid_points         100
-  n_electrons            2
-  n_basis_functions     10
+  n_electrons           8
+  n_basis_functions     20
   time_step             0.01
-  time_length           100
-  e_convergence         0.0000000000001
-  d_convergence         0.0000000000001
-  fast_eri              false
-  maxiter               200
-  symmetry              false
+  time_length           0.1
+  e_convergence         0.0000000001
+  d_convergence         0.0000000001
+  fast_eri              true
+  maxiter               1000
+  symmetry              true
+  cis                   false
   fourier               true
-  diis                  false
+  diis                  true
+  diis_num              50
   print_density         false
 }
 

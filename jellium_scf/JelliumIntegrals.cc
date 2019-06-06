@@ -435,6 +435,8 @@ void JelliumIntegrals::compute() {
         outfile->Printf("done.\n");fflush(stdout);
         outfile->Printf("\n");
         outfile->Printf("    time for (P|Q) construction:                %6.1f s\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC); fflush(stdout);
+        printf("    time for (P|Q) construction:                %6.1f s\n",(double)(end_pq-start_pq)/CLOCKS_PER_SEC);
+        printf("value of 000|000 %20.20f\n",PQ_p[PQmap[0][0][0]][PQmap[0][0][0]]);
         outfile->Printf("\n");
         
         //testing a small pq setup
@@ -559,52 +561,54 @@ double JelliumIntegrals::ERI_int(int a, int b, int c, int d){
       return 0.0;
     }
     
-    //if(fast_eri){
-    //if(iter < 2){
-    //   #pragma omp critical 
-    //   { 
-    //   if(eri_map2 == nullptr){
-    //      eri_map2 = (double****)malloc(orbitalMax*sizeof(double***));
-    //      for(int i = 0; i < orbitalMax; i++){
-    //         eri_map2[i] = nullptr;
-    //      }
-    //   }
-    //   if(eri_map2[a] == nullptr){
-    //      eri_map2[a] = (double***)malloc(orbitalMax*sizeof(double**));
-    //      for(int i = 0; i < orbitalMax; i++){
-    //         eri_map2[a][i] = nullptr;
-    //      }
-    //   }
-    //   if(eri_map2[a][b] == nullptr){
-    //      eri_map2[a][b] = (double**)malloc(orbitalMax*sizeof(double*));
-    //      for(int i = 0; i < orbitalMax; i++){
-    //         eri_map2[a][b][i] = nullptr;
-    //      }
-    //   }
-    //   if(eri_map2[a][b][c] == nullptr){
-    //      eri_map2[a][b][c] = (double*)malloc(orbitalMax*sizeof(double));
-    //      for(int i = 0; i < orbitalMax; i++){
-    //         eri_map2[a][b][c][i] = -999;
-    //      }
-    //   }
-    //   }
-    //}
-    //if(eri_map2[a][b][c][d] != -999){return eri_map2[a][b][c][d];}
+    if(fast_eri){
+    if(iter < 2){
+       #pragma omp critical 
+       { 
+       if(eri_map2 == nullptr){
+          eri_map2 = (double****)malloc(orbitalMax*sizeof(double***));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[i] = nullptr;
+          }
+       }
+       if(eri_map2[a] == nullptr){
+          eri_map2[a] = (double***)malloc(orbitalMax*sizeof(double**));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[a][i] = nullptr;
+          }
+       }
+       if(eri_map2[a][b] == nullptr){
+          eri_map2[a][b] = (double**)malloc(orbitalMax*sizeof(double*));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[a][b][i] = nullptr;
+          }
+       }
+       if(eri_map2[a][b][c] == nullptr){
+          eri_map2[a][b][c] = (double*)malloc(orbitalMax*sizeof(double));
+          for(int i = 0; i < orbitalMax; i++){
+             eri_map2[a][b][c][i] = -999;
+          }
+       }
+       }
+    }
+    if(eri_map2[a][b][c][d] != -999){return eri_map2[a][b][c][d];}
 
-    //double tmp = ERI_unrolled(MO[a], MO[b], MO[c], MO[d]);
+    double tmp = ERI_unrolled(MO[a], MO[b], MO[c], MO[d]);
   
-    //eri_map2[a][b][c][d] = tmp;
+    eri_map2[a][b][c][d] = tmp;
 
-    //return tmp;
-    //
-    //}
+    return tmp;
+    
+    }
     //double test = ERI_unrolled(MO[a], MO[b], MO[c], MO[d]);
-    //printf("%f\n",test);
     //return ERI_unrolled(MO[a], MO[b], MO[c], MO[d]);
 
-    //testing
-    return ERI_unrolled_test(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
+    //double testing = ERI_unrolled_test(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
 
+    //if(test != testing){
+    //  printf("not the same\n");
+    //}
+    return ERI_unrolled_test(MO[a], MO[b], MO[c], MO[d], PQ->pointer(), PQmap);
 }
 
 double JelliumIntegrals::g_pq(int p, int q, double x) {
