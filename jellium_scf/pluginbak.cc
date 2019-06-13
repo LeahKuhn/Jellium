@@ -606,6 +606,10 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
     //Calculating MO_eri's
     //using n^8th scaling as reference implementation
     //Under the assumption of no symmetry for now
+    if ( Jell->nirrep_ > 1 ) {
+        throw PsiException("Jellium CIS does not yet work with symmetry",__FILE__,__LINE__);
+    }
+
     double ** c_p = Ca->pointer(0);
         #pragma omp parallel for
     for(int p = 0; p < nso; p++){
@@ -616,7 +620,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
                    for(int lamba = 0; lamba < nso; lamba++){
                       for(int nu = 0; nu < nso; nu++){
                          for(int mu = 0; mu < nso; mu++){
-                            MO_eri[p][q][r][s] += c_p[theta][p]*c_p[lamba][q]*c_p[nu][r]*c_p[mu][s]*Jell->ERI_int(mu,q,r,s); 
+                            MO_eri[p][q][r][s] += c_p[theta][p]*c_p[lamba][q]*c_p[nu][r]*c_p[mu][s]*Jell->ERI_int(mu,lambda,nu,mu); 
                          }
                       }
                    }
@@ -627,41 +631,64 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
        }
     } 
 
-    for(int p = 0; p < nso; p++){
-       for(int q = 0; q < nso; q++){
-          for(int r = 0; r < nso; r++){
-             for(int s = 0; s < nso; s++){
-                for(int theta = 0; theta < nso; theta++){
-                   MO_eri_test[p][q][r][s] += c_p[s][theta]*Jell->ERI_int(p,q,r,theta); 
+    // (p nu | lambda sigma) <- ( mu nu | lambda sigma)
+    for (int p = 0; p < nso; p++){
+        for (int nu = 0; nu < nso; nu++){
+            for (int lamba = 0; lamba < nso; lamba++){
+                for (int sigma = 0; sigma < nso; sigma++){
+                    double dum = 0.0;
+                    for (int mu = 0; mu < nso; mu++){
+                        dum += c_p[mu][p] * Jell->ERI_int(mu,nu,lambda,sigma);
+                    }
+                    MO_eri_test[p][nu][lambda][sigma];
                 }
-                for(int lamba = 0; lamba < nso; lamba++){
-                   MO_eri_test[p][q][r][s] += c_p[r][lamba]*Jell->ERI_int(p,q,lamba,s);
-                }
-                for(int nu = 0; nu < nso; nu++){
-                   MO_eri_test[p][q][r][s] += c_p[q][nu]*Jell->ERI_int(p,nu,r,s); 
-                }
-                for(int mu = 0; mu < nso; mu++){
-                   MO_eri_test[p][q][r][s] += c_p[p][mu]*Jell->ERI_int(mu,q,r,s); 
-                }
-                //printf("%f\n",MO_eri[p][q][r][s]);
-             }
-          }
-       }
-    } 
-    
-     for(int p = 0; p < nso; p++){
-       for(int q = 0; q < nso; q++){
-          for(int r = 0; r < nso; r++){
-             for(int s = 0; s < nso; s++){
-                if(MO_eri_test[p][q][r][s] != MO_eri[p][q][r][s]){
-                //printf("%f ",MO_eri[p][q][r][s]);
-                //printf("%f\n",MO_eri_test[p][q][r][s]);
-                }
-             }
-          }
-       }
+            }
+        }
     }
-    //Doing CIS
+    // (p q | lambda sigma) <- ( p nu | lambda sigma)
+    for (int p = 0; p < nso; p++){
+        for (int q = 0; q < nso; q++){
+            for (int lamba = 0; lamba < nso; lamba++){
+                for (int sigma = 0; sigma < nso; sigma++){
+                    double dum = 0.0;
+                    for (int nu = 0; nu < nso; nu++){
+                        dum += c_p[nu][q] * MO_eri_test[p][nu][lambda][sigma];
+                    }
+                    MO_eri[p][q][lambda][sigma];
+                }
+            }
+        }
+    }
+    // (p q | r sigma) <- ( p q | lambda sigma)
+    for (int p = 0; p < nso; p++){
+        for (int q = 0; q < nso; q++){
+            for (int r = 0; r < nso; r++){
+                for (int sigma = 0; sigma < nso; sigma++){
+                    double dum = 0.0;
+                    for (int lamba = 0; lamba < nso; lamba++){
+                        dum += c_p[lambda][r] * MO_eri[p][q][lambda][sigma];
+                    }
+                    MO_eri_test[p][q][r][sigma];
+                }
+            }
+        }
+    }
+    // (p q | r s) <- ( p q | r sigma)
+    for (int p = 0; p < nso; p++){
+        for (int q = 0; q < nso; q++){
+            for (int r = 0; r < nso; r++){
+                for (int s = 0; s < nso; s++){
+                    double dum = 0.0;
+                    for (int sigma = 0; sigma < nso; sigma++){
+                        dum += c_p[sigma][s] * MO_eri_test[p][q][r][sigma];
+                    }
+                    MO_eri[p][q][r][s];
+                }
+            }
+        }
+    }
+    
+    //Doing CIS - definitely not going to work correctly with symmetry ...
     for(int h = 0; h < Jell->nirrep_; h++){
        double ** cis_ptr = cis_matrix->pointer(h);
        double ** F_ptr = F_re->pointer(h);

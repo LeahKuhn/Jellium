@@ -710,6 +710,11 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
 
     //converting dipole to the MO basis
     //TODO this wont work with symmetry
+
+    if ( Jell->nirrep_ > 1 ) {
+        throw PsiException("Jellium CIS does not work with symmetry",__FILE__,__LINE__);
+    }
+
     double ** MO_dipole_ptr = MO_dipole->pointer(0);
     
     for(int i = 0; i < nso; i++){
@@ -722,7 +727,7 @@ SharedWavefunction jellium_scf(SharedWavefunction ref_wfn, Options& options)
        }
     }
 
-    //Doing CIS
+    //Doing CIS - this definitely won't work with symmetry
     for(int h = 0; h < Jell->nirrep_; h++){
        double ** cis_ptr = cis_matrix->pointer(h);
        double ** F_ptr = F_re->pointer(h);
